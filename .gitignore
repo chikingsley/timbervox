@@ -8,9 +8,6 @@ updates/
 *.xcworkspace/xcuserdata/
 *.xcuserstate
 buildServer.json
-bin
-scripts
-tools
 ExportOptions.plist
 ToyLocalCore/.build
 ToyLocalCore/.swiftpm/xcode/xcuserdata/kit.xcuserdatad/xcschemes

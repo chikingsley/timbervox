@@ -1,6 +1,6 @@
 # ToyLocal TODO (Execution Board)
 
-Last updated: 2026-02-25
+Last updated: 2026-06-30
 
 ## Operating Rules
 
@@ -38,12 +38,13 @@ Last updated: 2026-02-25
   - Manual: hold paste hotkey does not spam multiple pastes.
   - Manual: hold dump hotkey does not spam multiple clears.
 
-### [ ] P0-3 Release Metadata Consistency
+### [ ] P0-3 App Target Builds on Current Xcode
 
-- Scope: ensure all changesets reference the real package name (`toy-local-app`).
-- Done when: changeset tooling can resolve all pending entries without unknown package errors.
+- Scope: keep the app target building on the active local Xcode and the CI Xcode toolchain.
+- Done when: dependency pins and app code compile without package-level drift failures.
 - Test Gate:
-  - `bunx @changesets/cli status --verbose` (or project-local equivalent once deps are installed)
+  - `bun run test:app`
+  - `bun run test:release`
 
 ### [ ] P0-4 Build Config Consistency
 
@@ -52,6 +53,15 @@ Last updated: 2026-02-25
 - Test Gate:
   - Project builds in Debug and Release.
   - Permission prompts observed in real app runtime (not bypassed by accidental local config drift).
+
+### [ ] P0-5 Public Release Pipeline
+
+- Scope: restore a real signing, notarization, Sparkle, GitHub release, and Homebrew cask workflow.
+- Done when: one documented local or CI path can produce signed/notarized DMG + ZIP + appcast artifacts.
+- Test Gate:
+  - Dry-run or staging release produces artifacts without uploading to production.
+  - Changesets apply cleanly and produce release notes.
+  - Sparkle appcast has strictly increasing `CFBundleVersion`.
 
 ## P1 (Next)
 

@@ -11,7 +11,7 @@ Or download via Homebrew:
 brew install --cask toy-local
 ```
 
-I've opened-sourced the project in the hopes that others will find it useful! `toy-local` supports both [Parakeet TDT v3](https://github.com/FluidInference/FluidAudio) via the awesome [FluidAudio](https://github.com/FluidInference/FluidAudio) (the default—it's frickin' unbelievable: fast, multilingual, and cloud-optimized) and the awesome [WhisperKit](https://github.com/argmaxinc/WhisperKit) for on-device transcription. We use the incredible [Swift Composable Architecture](https://github.com/pointfreeco/swift-composable-architecture) for structuring the app. Please open issues with any questions or feedback! ❤️
+I've opened-sourced the project in the hopes that others will find it useful. `toy-local` supports both [Parakeet TDT v3](https://github.com/FluidInference/FluidAudio) via [FluidAudio](https://github.com/FluidInference/FluidAudio) and [WhisperKit](https://github.com/argmaxinc/WhisperKit) for on-device transcription. The app is structured with SwiftUI, Observation (`@Observable`) stores, async services, and a small pure-Swift core package for testable hotkey/transcript logic.
 
 ## Instructions
 
@@ -49,6 +49,13 @@ Notes:
 
 ### Testing
 
+Install repo tooling first:
+
+```bash
+bun install
+brew install swiftlint
+```
+
 Run the full local quality gate:
 
 ```bash
@@ -65,14 +72,12 @@ xcodebuild test -project toy-local.xcodeproj -scheme "toy-local" -destination "p
 xcodebuild build -project toy-local.xcodeproj -scheme "toy-local" -configuration Release -destination "platform=macOS,arch=arm64" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
 ```
 
-### Changelog workflow
+### Changelog Workflow
 
 - **For AI agents:** Run `bun run changeset:add-ai <type> "summary"` (e.g., `bun run changeset:add-ai patch "Fix clipboard timing"`) to create a changeset non-interactively.
 - **For humans:** Run `bunx changeset` when your PR needs release notes. Pick `patch`, `minor`, or `major` and write a short summary—this creates a `.changeset/*.md` fragment.
-- Check what will ship with `bunx changeset status --verbose`.
-- `npm run sync-changelog` (or `bun run tools/scripts/sync-changelog.ts`) mirrors the root `CHANGELOG.md` into `ToyLocal/Resources/changelog.md` so the in-app sheet always matches GitHub releases.
-- The release tool consumes the pending fragments, bumps `package.json` + `Info.plist`, regenerates `CHANGELOG.md`, and feeds the resulting section to GitHub + Sparkle automatically. Releases fail fast if no changesets are queued, so you can't forget.
-- If you truly need to ship without pending Changesets (for example, re-running a failed publish), the release script will now prompt you to confirm and choose a `patch`/`minor`/`major` bump interactively before continuing.
+- Check what will ship with `bun run changeset:status`.
+- Changesets currently manage pending release notes and version planning. The signing/notarization/upload release pipeline is still being re-established; see [docs/release-process.md](docs/release-process.md).
 
 ## License
 

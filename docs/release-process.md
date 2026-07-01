@@ -1,154 +1,70 @@
 # ToyLocal Release Process
 
-## Overview
+This document tracks the current release shape. The app is intended to be a public, signed, notarized macOS app with Sparkle updates and an optional Homebrew cask, but the full one-command release pipeline is not currently present in this checkout.
 
-Releases are triggered by pushing git tags. The system automatically:
-- Builds & signs the app
-- Notarizes with Apple
-- Creates DMG + ZIP artifacts
-- Uploads to S3 for Sparkle updates
-- Creates GitHub release
+## Current Local Gates
 
-## Quick Start
+Install local tooling first:
 
 ```bash
-# Create and push a tag
-git tag v0.2.12
-git push origin v0.2.12
-
-# GitHub Actions will automatically:
-# 1. Build ToyLocal v0.2.12
-# 2. Notarize with Apple
-# 3. Upload to S3 (Sparkle)
-# 4. Create GitHub release with DMG + ZIP
+bun install
+brew install swiftlint
 ```
 
-## Architecture
-
-**Tag-based versioning:**
-- Tag `v0.2.12` → builds version `0.2.12`
-- Updates `Info.plist` and `project.pbxproj`
-- Auto-increments build number
-
-**Effect Config system:**
-```typescript
-// Reads from environment variables
-BUCKET=toy-local-updates              // Default
-VERSION=v0.2.12                  // From git tag
-APPLE_ID=your@email.com         // CI only
-APPLE_ID_PASSWORD=xxxx-xxxx     // CI only
-AWS_ACCESS_KEY_ID=...           // Required
-AWS_SECRET_ACCESS_KEY=...       // Required
-```
-
-**Local vs CI:**
-- **Local**: Uses keychain profile `AC_PASSWORD`
-- **CI**: Uses `APPLE_ID` / `APPLE_ID_PASSWORD` env vars
-
-## Local Testing
+Run these before merging releasable changes:
 
 ```bash
-# Setup keychain profile (one-time)
-xcrun notarytool store-credentials "AC_PASSWORD"
-
-# Test release locally (doesn't upload)
-cd tools
-VERSION=v0.2.12-test \
-  AWS_ACCESS_KEY_ID=... \
-  AWS_SECRET_ACCESS_KEY=... \
-  bun run release.ts
+bun run format:check
+bun run lint
+bun run test:core
+bun run test:app
+bun run test:release
 ```
 
-## Required Secrets
-
-Set via: `gh secret set SECRET_NAME`
-
-### Apple (Notarization)
-```bash
-APPLE_ID                    # your@email.com
-APPLE_ID_PASSWORD          # App-specific password from appleid.apple.com
-TEAM_ID                     # QC99C9JE59
-```
-
-### Code Signing
-```bash
-MACOS_CERTIFICATE          # base64 -i cert.p12 | pbcopy
-MACOS_CERTIFICATE_PWD      # Certificate password
-```
-
-### AWS (S3 / Sparkle)
-```bash
-AWS_ACCESS_KEY_ID
-AWS_SECRET_ACCESS_KEY
-```
-
-## Artifacts
-
-Each release creates:
-- `ToyLocal-{version}.dmg` - Signed, notarized DMG
-- `ToyLocal-{version}.zip` - For Homebrew cask
-- `toy-local-latest.dmg` - Always points to latest
-- `appcast.xml` - Sparkle update feed
-
-## Homebrew Cask
-
-After first release, update `toy-local.rb`:
+Or run all of them:
 
 ```bash
-# Get SHA256
-curl -L https://github.com/chikingsley/toy-local/releases/download/v0.2.12/ToyLocal-v0.2.12.zip -o ToyLocal.zip
-shasum -a 256 ToyLocal.zip
-
-# Update toy-local.rb with version and SHA
+bun run check
 ```
 
-Submit to:
-- **Personal tap**: `homebrew-toy-local` (easier)
-- **Official cask**: PR to `homebrew/homebrew-cask`
+## Release Notes
 
-## Critical Constraints
+Changesets are used for pending release notes and semver intent:
 
-### CFBundleVersion Requirements
+```bash
+bun run changeset:add-ai patch "Fix clipboard timing"
+bun run changeset:status
+```
 
-**NEVER manually edit CFBundleVersion or reuse build numbers.** The release pipeline automatically increments CFBundleVersion with each release to ensure Sparkle can properly generate the appcast feed.
+For user-facing changes, add a `.changeset/*.md` fragment. The release pipeline should consume these fragments when the signing/notarization tooling is rebuilt.
 
-- `updates/` directory must only contain DMGs with strictly increasing CFBundleVersion values
-- Duplicate build numbers will block appcast generation and break updates for existing users
-- The release script preserves the last 3 DMGs in `updates/` for delta generation
-- Older versions are automatically moved to `updates/old_updates/`
+## Release Artifacts
 
-If you accidentally create a release with a duplicate CFBundleVersion:
-1. Delete the problematic DMG from `updates/`
-2. Move any other old DMGs to `updates/old_updates/`
-3. Regenerate appcast: `./bin/generate_appcast --maximum-deltas 3 updates`
-4. Re-upload cleaned artifacts to S3
+The intended public artifacts are:
 
-## Troubleshooting
+- `ToyLocal-{version}.dmg` for direct download and Sparkle.
+- `ToyLocal-{version}.zip` for Homebrew cask distribution.
+- `toy-local-latest.dmg` as a stable latest-download object.
+- `appcast.xml` for Sparkle updates.
 
-### Notarization fails
-- Check Apple ID credentials
-- Verify app-specific password
-- Ensure `TEAM_ID` is correct
+## Existing Release Files
 
-### S3 upload fails
-- Verify AWS credentials
-- Check bucket permissions
-- Ensure bucket exists
+- `bin/generate_appcast`: Sparkle appcast generator binary.
+- `toy-local.rb`: Homebrew cask formula template.
+- `.changeset/`: pending release-note fragments.
+- `CHANGELOG.md`: human-readable release history.
+- `ToyLocal/Resources/changelog.md`: in-app changelog content.
 
-### Build fails
-- Check Xcode version (16.2)
-- Verify code signing setup
-- Check certificate validity
+## Missing Pipeline Work
 
-### Sparkle updates not appearing
-- Verify appcast.xml lists versions in descending CFBundleVersion order
-- Check that CFBundleVersion values are unique and strictly increasing
-- Ensure no duplicate build numbers exist in updates/
-- Test feed URL: https://toy-local-updates.s3.amazonaws.com/appcast.xml
+Before a real public release, rebuild or restore the release tool that:
 
-## Files
+1. Applies pending Changesets and updates versions.
+2. Builds and archives the app with Developer ID signing.
+3. Notarizes the app and DMG.
+4. Creates DMG and ZIP artifacts.
+5. Generates `appcast.xml` with strictly increasing `CFBundleVersion`.
+6. Uploads release artifacts to S3.
+7. Creates a GitHub release and updates the Homebrew cask metadata.
 
-- `tools/release.ts` - Main release script (Effect)
-- `.github/workflows/release.yml` - CI workflow
-- `bin/generate_appcast` - Sparkle appcast generator
-- `toy-local.rb` - Homebrew cask formula
+Do not publish Sparkle updates manually unless `CFBundleVersion` ordering has been checked. Duplicate or decreasing build numbers break update delivery.
