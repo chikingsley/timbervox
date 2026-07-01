@@ -98,7 +98,7 @@ actor ParakeetClient {
     let models = try await AsrModels.downloadAndLoad(version: version)
     self.models = models
     let manager = AsrManager(config: .init())
-    try await manager.initialize(models: models)
+    try await manager.loadModels(models)
     self.asr = SendableAsrManager(value: manager)
     self.currentVariant = variant
     p.completedUnitCount = 100
@@ -128,7 +128,8 @@ actor ParakeetClient {
     guard let asr else { throw NSError(domain: "Parakeet", code: -1, userInfo: [NSLocalizedDescriptionKey: "Parakeet not initialized"]) }
     let t0 = Date()
     logger.notice("Transcribing with Parakeet file=\(url.lastPathComponent)")
-    let result = try await asr.value.transcribe(url)
+    var decoderState = TdtDecoderState.make(decoderLayers: await asr.value.decoderLayerCount)
+    let result = try await asr.value.transcribe(url, decoderState: &decoderState)
     logger.info("Parakeet transcription finished in \(String(format: "%.2f", Date().timeIntervalSince(t0)))s")
     return result.text
   }

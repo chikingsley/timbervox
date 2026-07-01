@@ -91,7 +91,7 @@ actor StreamingParakeetClient {
 			chunkSize: chunkSize,
 			eouDebounceMs: 1280
 		)
-		try await mgr.loadModels(modelDir: modelDir)
+		try await mgr.loadModels(from: modelDir)
 
 		self.manager = mgr
 		self.currentChunkSize = chunkSize
