@@ -65,9 +65,9 @@ Wired and confirmed working, for the record: playback-pause-on-record (`Recordin
 
 ---
 
-## Reliability ports (verified: on upstream/main, NOT on this branch)
+## Reliability ports (verified: from the original Hex repo, NOT on main)
 
-- [ ] Cherry-pick the six recording-reliability commits from `upstream/main` (fetched locally, confirmed absent from HEAD): `c5d5162` warm mic, `53b4d40` wake/route recovery, `d9e40cc` capture startup + mic selection, `55249a6` clipped fast recordings, `c00a91d` mic/recording hardening, `71878b7` route-change capture rebuilds. [A]
+- [ ] Cherry-pick the six recording-reliability commits preserved under the local tag `hex-upstream-2026-07-04` (the Hex upstream remote was removed 2026-07-04; the commits stay reachable via this tag, confirmed absent from main): `c5d5162` warm mic, `53b4d40` wake/route recovery, `d9e40cc` capture startup + mic selection, `55249a6` clipped fast recordings, `c00a91d` mic/recording hardening, `71878b7` route-change capture rebuilds. [A]
 - [ ] Microphone failure state made visible and testable. [B]
 - [ ] Always-on paste/dump determinism (edge/latch tests). [A]
 - [ ] Streaming preview + batch finalization pattern (Nemotron preview, Parakeet final, observable fallback). [B]
