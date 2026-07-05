@@ -36,7 +36,9 @@ final class ServiceContainer {
       transcriptStore: transcriptStore,
       transcriptPersistence: transcriptPersistence
     )
-    self.recording = RecordingClientLive(settingsManager: settings)
+    let recording = RecordingClientLive(settingsManager: settings)
+    self.recording = recording
+    Task { await recording.startObservingSystemChanges() }
     self.keyEventMonitor = KeyEventMonitorClientLive(settingsManager: settings)
     let transcription = TranscriptionClientLive()
     let cloud = ToyLocalCloudClient(baseURL: Self.cloudBaseURL())

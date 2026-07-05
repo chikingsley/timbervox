@@ -10,6 +10,7 @@ enum ToyLocalSettingKey: String, CodingKey, CaseIterable {
   case showDockIcon
   case selectedModel
   case localModelPrewarmEnabled
+  case superFastModeEnabled
   case useClipboardPaste
   case preventSystemSleep
   case recordingAudioBehavior
@@ -121,6 +122,7 @@ enum ToyLocalSettingsSchema {
       keyPath: \.localModelPrewarmEnabled,
       default: defaults.localModelPrewarmEnabled
     ).eraseToAny(),
+    SettingsField(.superFastModeEnabled, keyPath: \.superFastModeEnabled, default: defaults.superFastModeEnabled).eraseToAny(),
     SettingsField(.useClipboardPaste, keyPath: \.useClipboardPaste, default: defaults.useClipboardPaste).eraseToAny(),
     SettingsField(.preventSystemSleep, keyPath: \.preventSystemSleep, default: defaults.preventSystemSleep).eraseToAny(),
     SettingsField(.recordingAudioBehavior, keyPath: \.recordingAudioBehavior, default: defaults.recordingAudioBehavior).eraseToAny(),

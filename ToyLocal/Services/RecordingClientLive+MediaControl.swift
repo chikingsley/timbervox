@@ -27,10 +27,15 @@ extension RecordingClientLive {
       }
 
       let paused = pauseAllMediaApplications()
+      guard self.isCurrentSession(sessionID) else {
+        resumeMediaApplications(paused)
+        return
+      }
       self.updatePausedPlayers(paused, sessionID: sessionID)
 
       guard self.isCurrentSession(sessionID) else { return }
       if paused.isEmpty, await isAudioPlayingOnDefaultOutput() {
+        guard self.isCurrentSession(sessionID) else { return }
         mediaControlLogger.notice("Detected active audio on default output; sending media pause")
         await MainActor.run {
           sendMediaKey()
@@ -47,6 +52,10 @@ extension RecordingClientLive {
     mediaControlTask = Task { [sessionID] in
       guard self.isCurrentSession(sessionID) else { return }
       let volume = RecordingAudioHardware.muteSystemVolume()
+      guard self.isCurrentSession(sessionID) else {
+        RecordingAudioHardware.restoreSystemVolume(volume)
+        return
+      }
       self.setPreviousVolume(volume, sessionID: sessionID)
     }
   }
@@ -55,6 +64,10 @@ extension RecordingClientLive {
     mediaControlTask = Task { [sessionID] in
       guard self.isCurrentSession(sessionID) else { return }
       let volume = RecordingAudioHardware.lowerSystemVolume(to: Self.loweredVolumeFactor)
+      guard self.isCurrentSession(sessionID) else {
+        RecordingAudioHardware.restoreSystemVolume(volume)
+        return
+      }
       self.setPreviousVolume(volume, sessionID: sessionID)
     }
   }
@@ -66,7 +79,7 @@ extension RecordingClientLive {
     }
 
     let isPlaying = await controller.isMediaPlaying()
-    guard isPlaying else {
+    guard isPlaying, self.isCurrentSession(sessionID), !Task.isCancelled else {
       return false
     }
 

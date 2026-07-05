@@ -2,10 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>AudioHardwarePowerHint</key>
+	<string>None</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIconName</key>
 	<string>AppIcon</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.6.9</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -29,12 +33,15 @@
 			</array>
 		</dict>
 	</array>
-	<key>CFBundleShortVersionString</key>
-	<string>0.6.9</string>
 	<key>CFBundleVersion</key>
 	<string>78</string>
 	<key>NSAccessibilityUsageDescription</key>
 	<string>ToyLocal needs accessibility access to control typing and paste actions in other apps.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>ToyLocal needs automation access to control supported apps while inserting dictation results.</string>
 	<key>NSAudioCaptureUsageDescription</key>
@@ -43,15 +50,10 @@
 	<string>ToyLocal needs microphone access to record and transcribe your voice.</string>
 	<key>NSScreenCaptureUsageDescription</key>
 	<string>ToyLocal needs screen recording access to capture visible context for prompt modes.</string>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
-	</dict>
-	<key>SUEnableInstallerLauncherService</key>
-	<true/>
 	<key>SUEnableAutomaticChecks</key>
 	<false/>
+	<key>SUEnableInstallerLauncherService</key>
+	<true/>
 	<key>SUFeedURL</key>
 	<string>https://toy-local-updates.s3.amazonaws.com/appcast.xml</string>
 	<key>SUPublicEDKey</key>

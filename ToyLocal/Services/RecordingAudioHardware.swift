@@ -44,12 +44,43 @@ enum RecordingAudioHardware {
   }
 
   static func getDeviceName(deviceID: AudioDeviceID) -> String? {
-    var address = audioPropertyAddress(kAudioDevicePropertyDeviceNameCFString)
+    getDeviceStringProperty(deviceID: deviceID, selector: kAudioDevicePropertyDeviceNameCFString)
+  }
 
-    var deviceName: CFString?
+  static func getDeviceUID(deviceID: AudioDeviceID) -> String? {
+    getDeviceStringProperty(deviceID: deviceID, selector: kAudioDevicePropertyDeviceUID)
+  }
+
+  static func getDeviceID(uid: String) -> AudioDeviceID? {
+    var address = audioPropertyAddress(kAudioHardwarePropertyDeviceForUID)
+    var deviceUID = uid as CFString
+    var deviceID = AudioDeviceID(0)
+    var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+    let status = withUnsafePointer(to: &deviceUID) { pointer in
+      AudioObjectGetPropertyData(
+        AudioObjectID(kAudioObjectSystemObject),
+        &address,
+        UInt32(MemoryLayout<CFString>.size),
+        pointer,
+        &size,
+        &deviceID
+      )
+    }
+
+    guard status == noErr, deviceID != kAudioObjectUnknown else { return nil }
+    return deviceID
+  }
+
+  private static func getDeviceStringProperty(
+    deviceID: AudioDeviceID,
+    selector: AudioObjectPropertySelector
+  ) -> String? {
+    var address = audioPropertyAddress(selector)
+
+    var value: CFString?
     var size = UInt32(MemoryLayout<CFString?>.size)
-    let deviceNamePtr: UnsafeMutableRawPointer = .allocate(byteCount: Int(size), alignment: MemoryLayout<CFString?>.alignment)
-    defer { deviceNamePtr.deallocate() }
+    let valuePtr: UnsafeMutableRawPointer = .allocate(byteCount: Int(size), alignment: MemoryLayout<CFString?>.alignment)
+    defer { valuePtr.deallocate() }
 
     let status = AudioObjectGetPropertyData(
       deviceID,
@@ -57,19 +88,16 @@ enum RecordingAudioHardware {
       0,
       nil,
       &size,
-      deviceNamePtr
+      valuePtr
     )
 
-    if status == 0 {
-      deviceName = deviceNamePtr.load(as: CFString?.self)
-    }
-
     if status != 0 {
-      recordingLogger.error("Failed to fetch device name: \(status)")
+      recordingLogger.error("Failed to fetch device property \(selector): \(status)")
       return nil
     }
 
-    return deviceName as String?
+    value = valuePtr.load(as: CFString?.self)
+    return value as String?
   }
 
   static func deviceHasInput(deviceID: AudioDeviceID) -> Bool {
@@ -151,20 +179,9 @@ enum RecordingAudioHardware {
     return deviceID
   }
 
-  static func ensureInputDeviceUnmuted(settings: ToyLocalSettings) {
-    var deviceIDsToCheck: [AudioDeviceID] = []
-
-    if let selectedIDString = settings.selectedMicrophoneID,
-      let selectedID = AudioDeviceID(selectedIDString)
-    {
-      deviceIDsToCheck.append(selectedID)
-    }
-
-    if let defaultID = getDefaultInputDevice(), !deviceIDsToCheck.contains(defaultID) {
-      deviceIDsToCheck.append(defaultID)
-    }
-
-    for deviceID in deviceIDsToCheck where isInputDeviceMuted(deviceID) {
+  static func ensureInputDeviceUnmuted() {
+    guard let deviceID = getDefaultInputDevice() else { return }
+    if isInputDeviceMuted(deviceID) {
       recordingLogger.error("Input device \(deviceID) is MUTED at Core Audio level! This causes silent recordings.")
       unmuteInputDevice(deviceID)
     }

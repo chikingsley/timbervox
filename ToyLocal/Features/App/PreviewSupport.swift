@@ -90,8 +90,8 @@ enum AppPreviewState {
     store.screenCapturePermission = .granted
 
     store.settings.availableInputDevices = [
-      AudioInputDevice(id: "system-default", name: "MacBook Air Microphone"),
-      AudioInputDevice(id: "usb-preview", name: "USB Microphone"),
+      AudioInputDevice(id: "system-default", legacyID: "0", name: "MacBook Air Microphone"),
+      AudioInputDevice(id: "usb-preview", legacyID: "1", name: "USB Microphone"),
     ]
     store.settings.defaultInputDeviceName = "MacBook Air Microphone"
 

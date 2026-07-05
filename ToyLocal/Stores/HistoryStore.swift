@@ -23,9 +23,12 @@ class AudioPlayerController: NSObject, AVAudioPlayerDelegate, @unchecked Sendabl
   }
 
   func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+    guard self.player === player else { return }
     self.player = nil
+    let callback = onPlaybackFinished
+    onPlaybackFinished = nil
     Task { @MainActor in
-      onPlaybackFinished?()
+      callback?()
     }
   }
 }
@@ -131,7 +134,8 @@ final class HistoryStore {
 
       controller.onPlaybackFinished = { [weak self] in
         Task { @MainActor in
-          self?.stopPlayback()
+          guard let self, self.playingTranscriptID == id else { return }
+          self.stopPlayback()
         }
       }
     } catch {

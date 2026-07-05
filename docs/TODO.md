@@ -34,13 +34,15 @@ Wired and confirmed working, for the record: playback-pause-on-record, system-au
 
 ---
 
-## Distribution blockers (App Store target in ~2 days)
+## Distribution and v1 scope (decisions recorded 2026-07-05)
 
-- [ ] DECISION FIRST: Mac App Store vs direct notarized download. Verified state: App Sandbox is OFF (`ENABLE_APP_SANDBOX = NO` in both configs, project.pbxproj:463,517; no sandbox key in ToyLocal.entitlements) and Sparkle self-update is fully wired (SUFeedURL appcast, Info.plist:55). MAS REQUIRES sandbox and FORBIDS Sparkle — and the app's core features (CGEvent-tap hotkeys, Accessibility text insertion, system-audio tap) do not work inside the sandbox. This is an architecture-level conflict, not a checkbox; it decides everything else in this section. [decision: Chi]
-- [ ] Cloud base URL defaults to `http://127.0.0.1:8787` (`ServiceContainer.swift:70-77`); only an env var overrides it. Production cloud URL must be baked for release. [A]
-- [ ] Cloud calls send NO auth: `ToyLocalCloudClient` supports a bearer token (:6,:109-111) but `ServiceContainer.swift:42` constructs it without one. Worker-side license/auth endpoints ALL exist (mint/revoke/activate/validate in `ToyLocalCloudflareApi/src/routes/licenses.ts`); the app has ZERO license code — LicensePane is a local @State mock. Build the app-side activate/validate + credential storage + bearer wiring. [A]
+Chi's calls: v1 ships DIRECT-ONLY (notarized + Sparkle; no sandbox work, MediaRemote stays). v1 is FREE with the license transport built behind a flag. Cloud transcription INCLUDING realtime is in v1 scope. If MAS is revisited later: sandbox spike first, and the MAS build drops Sparkle and the MediaRemote private-framework path (dlopen at `MediaControlService.swift:20` — automated App Review scan rejects it).
+
+- [ ] Cloud base URL defaults to `http://127.0.0.1:8787` (`ServiceContainer.swift:70-77`); only an env var overrides it. Deploy the worker and bake the production URL for release. [A]
+- [ ] Cloud auth for a free v1: the worker's cloud routes have NO auth today (open proxy to the API keys once deployed). Design: a public, rate-limited device-registration route that auto-issues a free-tier credential, reusing the existing activate/validate machinery (`ToyLocalCloudflareApi/src/routes/licenses.ts`); the app stores the credential and sends it as the bearer token `ToyLocalCloudClient` already supports (:6,:109-111). Paid-license activation ships behind a disabled flag on the same client. [A]
+- [ ] App-side realtime WebSocket client against `GET /v1/realtime` (worker side complete — Deepgram + Mistral realtime behind a Durable Object). The largest remaining feature; required for v1 per scope decision. [A]
 - [ ] Sparkle updater starts eagerly at launch (`CheckForUpdatesView.swift:11-16`), not gated on onboarding completion. [A]
-- [ ] Release pipeline: signing environment, notarization, appcast with strictly increasing CFBundleVersion (direct-distribution path). [B]
+- [ ] Release pipeline: signing environment, notarization, EdDSA-signed update archives, appcast upload to the S3 bucket (`SUFeedURL` already points at it), strictly increasing CFBundleVersion. [B]
 
 ---
 
@@ -63,9 +65,12 @@ Wired and confirmed working, for the record: playback-pause-on-record, system-au
 
 ---
 
-## Reliability ports (verified: from the original Hex repo, NOT on main)
+## Reliability ports (from the original Hex repo)
 
-- [ ] Cherry-pick the six recording-reliability commits preserved under the local tag `hex-upstream-2026-07-04` (the Hex upstream remote was removed 2026-07-04; the commits stay reachable via this tag, confirmed absent from main): `c5d5162` warm mic, `53b4d40` wake/route recovery, `d9e40cc` capture startup + mic selection, `55249a6` clipped fast recordings, `c00a91d` mic/recording hardening, `71878b7` route-change capture rebuilds. [A]
+- [x] 2026-07-05: The six reliability commits (plus the three intervening commits they depend on) were ported by final-state behavior, not cherry-picked, because the fork's structure diverged. What landed: `CaptureEngineController` (AVAudioEngine warm capture, 1s ring buffer, 0.45s pre-roll in super-fast mode, channel-0 mapping for multichannel inputs, adaptive 20-80ms stop-grace so endings never clip); the capture engine is now the PRIMARY backend for all recordings with AVAudioRecorder as fallback only; wake/display-wake/device-change/route-change observers with 250ms debounce and deferred rebuilds (never restarts mid-recording; rebuild happens at the next recording start); stale-stop guards (a stop for an old session returns an ignored-stop URL instead of exporting a stale recording.wav); microphone identity persisted by CoreAudio device UID with automatic migration from legacy numeric IDs; session-race rollbacks in the media pause/mute/duck tasks; awaited media restore on stop and cleanup; a "Super fast mode" toggle in Sound → Recording; stop chime now plays AFTER capture finalizes; recording start is cancellable (quick press-release can no longer leave a ghost recording starting); empty transcription results delete their audio; History playback completion is single-fire and ignores stale players; `AudioHardwarePowerHint=None` in Info.plist. Reference sources extracted from the `hex-upstream-2026-07-04` tag.
+- [ ] Chi's hands-on pass: dictate across sleep/wake, AirPods connect/disconnect, and device switches; try Super fast mode and confirm instant starts with no clipped first word. [C]
+- [ ] Port the upstream race tests as our own (recording-race and playback-race unit tests; upstream's were TCA-specific). [A]
+- [ ] Mic menu resilience: show a stable "Unavailable device" entry when the selected mic is missing instead of falling back to the first option (upstream's picker fix; ours is TLOptionMenu so it needs its own treatment). [B]
 - [ ] Microphone failure state made visible and testable. [B]
 - [ ] Always-on paste/dump determinism (edge/latch tests). [A]
 - [ ] Streaming preview + batch finalization pattern (Nemotron preview, Parakeet final, observable fallback). [B]

@@ -216,6 +216,22 @@ final class SettingsStore {
       let defaultName = await recording.getDefaultInputDeviceName()
       self.availableInputDevices = devices
       self.defaultInputDeviceName = defaultName
+      self.migrateSelectedMicrophoneIDToDeviceUID(devices: devices)
+    }
+  }
+
+  private func migrateSelectedMicrophoneIDToDeviceUID(devices: [AudioInputDevice]) {
+    guard let selectedID = toyLocalSettings.selectedMicrophoneID,
+      !devices.contains(where: { $0.id == selectedID }),
+      let matchingDevice = devices.first(where: { $0.legacyID == selectedID })
+    else { return }
+    settingsLogger.notice("Migrating selected microphone from legacy id \(selectedID) to device UID")
+    toyLocalSettings.selectedMicrophoneID = matchingDevice.id
+  }
+
+  func warmUpRecorderForCaptureModeChange() {
+    Task {
+      await recording.warmUpRecorder()
     }
   }
 

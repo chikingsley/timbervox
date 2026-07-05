@@ -91,6 +91,19 @@ struct SoundPane: View {
           hint: "Sets microphone input volume to max when starting a recording. Only works if using system default device.",
           isOn: $store.toyLocalSettings.autoIncreaseMicrophoneVolume
         )
+        TLSettingsToggleRow(
+          title: "Super fast mode",
+          hint:
+            "Keeps the microphone engine warm so recordings start instantly, and prepends a short pre-roll so the first "
+            + "word is never clipped. macOS keeps showing the microphone indicator while the engine is armed.",
+          isOn: Binding(
+            get: { store.toyLocalSettings.superFastModeEnabled },
+            set: { enabled in
+              store.toyLocalSettings.superFastModeEnabled = enabled
+              store.warmUpRecorderForCaptureModeChange()
+            }
+          )
+        )
         playbackRow
 
       }

@@ -4,6 +4,8 @@
 
 ### Patch Changes
 
+- Ported the Hex upstream recording-reliability work by behavior: a new capture engine (AVAudioEngine) is the primary recording backend with warm-mic Super Fast Mode (pre-roll so the first word is never clipped), adaptive stop-grace so endings are never clipped, wake/route-change observers with deferred rebuilds, stale-stop session guards, microphone identity by device UID with legacy migration, media pause/mute rollbacks on cancelled sessions, cancellable recording starts, stop chime after capture finalizes, audio cleanup for empty transcriptions, and single-fire History playback completion.
+
 - Moved agent rules, gates, and resource references into a root `AGENTS.md`; `docs/TODO.md` now lists only work items, and completed phase notes moved to `docs/archive/phase-log-2026-07-04.md`.
 - Dropdown panels now cap at six visible rows and scroll, dropdown sizing lives inside the menu components instead of call sites (the Preset menu is the one documented exception), and the voice-model picker sizes to its content so model names and section headers no longer clip.
 - Wired previously dead settings to real behavior: "Paste result text" gates pasting (off copies to clipboard only), clipboard restore behavior is honored (Default/Restore/Bypass), "lower volume" during recording now ducks to 25% instead of full-muting, and automatic microphone volume raise sets the default input device to max during recording and restores it after.

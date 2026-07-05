@@ -43,6 +43,7 @@ final class TranscriptionStore {
   @ObservationIgnored private var meteringTask: Task<Void, Never>?
   @ObservationIgnored private var hotkeyMonitorTask: Task<Void, Never>?
   @ObservationIgnored private var transcriptionTask: Task<Void, Never>?
+  @ObservationIgnored private var recordingStartTask: Task<Void, Never>?
   @ObservationIgnored private var contextCaptureSession: DictationContextCaptureSession?
   @ObservationIgnored private var activeContextSnapshot: DictationContextSnapshot?
 
@@ -154,10 +155,16 @@ final class TranscriptionStore {
     transcriptionFeatureLogger.notice("Recording started at \(startTime.ISO8601Format())")
 
     let preventSleep = settings.settings.preventSystemSleep
-    Task {
+    recordingStartTask?.cancel()
+    recordingStartTask = Task {
       await soundEffects.play(.startRecording)
       if preventSleep {
         await sleepManagement.preventSleep(reason: "ToyLocal Voice Recording")
+      }
+      guard !Task.isCancelled else {
+        await sleepManagement.allowSleep()
+        transcriptionFeatureLogger.notice("Recording start cancelled before capture began")
+        return
       }
       await recording.startRecording()
     }
@@ -186,6 +193,8 @@ final class TranscriptionStore {
     isPrewarming = false
     textTransformState = .idle
 
+    recordingStartTask?.cancel()
+    recordingStartTask = nil
     transcriptionTask?.cancel()
     transcriptionTask = nil
     contextCaptureSession?.cancel()
@@ -205,6 +214,8 @@ final class TranscriptionStore {
     isRecording = false
     isPrewarming = false
     textTransformState = .idle
+    recordingStartTask?.cancel()
+    recordingStartTask = nil
     contextCaptureSession?.cancel()
     contextCaptureSession = nil
     activeContextSnapshot = nil
@@ -258,6 +269,7 @@ final class TranscriptionStore {
       isTranscribing = false
       textTransformState = .skipped(reason: "No text remained after transcript modifications.")
       error = "No text remained after transcript modifications."
+      try? FileManager.default.removeItem(at: audioURL)
       return
     }
 
@@ -292,38 +304,6 @@ final class TranscriptionStore {
         handleTranscriptionError(error: error)
       }
     }
-  }
-
-  private func handleTranscriptionError(error: Error) {
-    isTranscribing = false
-    isPrewarming = false
-    self.error = error.localizedDescription
-  }
-
-  private func applyTranscriptModifications(
-    _ result: String,
-    settings toyLocalSettings: ToyLocalSettings
-  ) -> String {
-    guard !settings.isRemappingScratchpadFocused else {
-      transcriptionFeatureLogger.info("Scratchpad focused; skipping word modifications")
-      return result
-    }
-
-    var output = result
-    if toyLocalSettings.wordRemovalsEnabled {
-      let removedResult = WordRemovalApplier.apply(output, removals: toyLocalSettings.wordRemovals)
-      if removedResult != output {
-        let enabledRemovalCount = toyLocalSettings.wordRemovals.filter(\.isEnabled).count
-        transcriptionFeatureLogger.info("Applied \(enabledRemovalCount) word removal(s)")
-      }
-      output = removedResult
-    }
-
-    let remappedResult = WordRemappingApplier.apply(output, remappings: toyLocalSettings.wordRemappings)
-    if remappedResult != output {
-      transcriptionFeatureLogger.info("Applied \(toyLocalSettings.wordRemappings.count) word remapping(s)")
-    }
-    return remappedResult
   }
 
   private func finalizeRecordingAndStoreTranscript(_ payload: TranscriptFinalizationPayload) async {
@@ -373,6 +353,38 @@ final class TranscriptionStore {
 }
 
 private extension TranscriptionStore {
+  func handleTranscriptionError(error: Error) {
+    isTranscribing = false
+    isPrewarming = false
+    self.error = error.localizedDescription
+  }
+
+  func applyTranscriptModifications(
+    _ result: String,
+    settings toyLocalSettings: ToyLocalSettings
+  ) -> String {
+    guard !settings.isRemappingScratchpadFocused else {
+      transcriptionFeatureLogger.info("Scratchpad focused; skipping word modifications")
+      return result
+    }
+
+    var output = result
+    if toyLocalSettings.wordRemovalsEnabled {
+      let removedResult = WordRemovalApplier.apply(output, removals: toyLocalSettings.wordRemovals)
+      if removedResult != output {
+        let enabledRemovalCount = toyLocalSettings.wordRemovals.filter(\.isEnabled).count
+        transcriptionFeatureLogger.info("Applied \(enabledRemovalCount) word removal(s)")
+      }
+      output = removedResult
+    }
+
+    let remappedResult = WordRemappingApplier.apply(output, remappings: toyLocalSettings.wordRemappings)
+    if remappedResult != output {
+      transcriptionFeatureLogger.info("Applied \(toyLocalSettings.wordRemappings.count) word remapping(s)")
+    }
+    return remappedResult
+  }
+
   func makeStopRecordingContext(at stopTime: Date) -> StopRecordingContext {
     let settingsSnapshot = settings.settings
     let startTime = recordingStartTime
@@ -447,8 +459,8 @@ private extension TranscriptionStore {
       await self.sleepManagement.allowSleep()
 
       do {
-        await self.soundEffects.play(.stopRecording)
         let capturedURL = await self.recording.stopRecording()
+        await self.soundEffects.play(.stopRecording)
         let signal = try RecordedAudioInspector.analyze(capturedURL)
         transcriptionFeatureLogger.notice("Audio signal rms=\(signal.rms) peak=\(signal.peak) nonZero=\(signal.nonZeroSamples)")
         guard !signal.isSilent else {

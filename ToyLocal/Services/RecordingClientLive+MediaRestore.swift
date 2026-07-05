@@ -4,40 +4,31 @@ import ToyLocalCore
 private let mediaRestoreLogger = ToyLocalLog.media
 
 extension RecordingClientLive {
-  func resumeMediaIfNeeded(
-    playersToResume: [String],
-    shouldResumeMedia: Bool,
-    shouldResumeViaMediaRemote: Bool,
-    volumeToRestore: Float?,
-    inputVolumeToRestore: Float?
-  ) {
-    guard
-      !playersToResume.isEmpty || shouldResumeMedia || shouldResumeViaMediaRemote || volumeToRestore != nil
-        || inputVolumeToRestore != nil
-    else {
-      return
+  func resumeMediaIfNeeded() async {
+    let playersToResume = pausedPlayers
+    let shouldResumeMedia = didPauseMedia
+    let shouldResumeViaMediaRemote = didPauseViaMediaRemote
+    let volumeToRestore = previousVolume
+    let inputVolumeToRestore = previousInputVolume
+
+    clearMediaState()
+
+    if let inputVolume = inputVolumeToRestore {
+      RecordingAudioHardware.restoreInputVolume(inputVolume)
     }
 
-    Task {
-      if let inputVolume = inputVolumeToRestore {
-        RecordingAudioHardware.restoreInputVolume(inputVolume)
+    if let volume = volumeToRestore {
+      RecordingAudioHardware.restoreSystemVolume(volume)
+    } else if !playersToResume.isEmpty {
+      mediaRestoreLogger.notice("Resuming players: \(playersToResume.joined(separator: ", "))")
+      resumeMediaApplications(playersToResume)
+    } else if shouldResumeViaMediaRemote {
+      await resumeMediaRemoteOrFallback()
+    } else if shouldResumeMedia {
+      await MainActor.run {
+        sendMediaKey()
       }
-
-      if let volume = volumeToRestore {
-        RecordingAudioHardware.restoreSystemVolume(volume)
-      } else if !playersToResume.isEmpty {
-        mediaRestoreLogger.notice("Resuming players: \(playersToResume.joined(separator: ", "))")
-        resumeMediaApplications(playersToResume)
-      } else if shouldResumeViaMediaRemote {
-        await resumeMediaRemoteOrFallback()
-      } else if shouldResumeMedia {
-        await MainActor.run {
-          sendMediaKey()
-        }
-        mediaRestoreLogger.notice("Resuming media via media key")
-      }
-
-      self.clearMediaState()
+      mediaRestoreLogger.notice("Resuming media via media key")
     }
   }
 

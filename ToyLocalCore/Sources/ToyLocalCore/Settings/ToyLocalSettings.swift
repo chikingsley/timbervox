@@ -112,6 +112,7 @@ public struct ToyLocalSettings: Codable, Equatable, Sendable {
   public var showDockIcon: Bool
   public var selectedModel: String
   public var localModelPrewarmEnabled: Bool
+  public var superFastModeEnabled: Bool
   public var useClipboardPaste: Bool
   public var preventSystemSleep: Bool
   public var recordingAudioBehavior: RecordingAudioBehavior
@@ -159,6 +160,7 @@ public struct ToyLocalSettings: Codable, Equatable, Sendable {
     showDockIcon: Bool = true,
     selectedModel: String = FluidAudioModels.parakeetTdtV3.id,
     localModelPrewarmEnabled: Bool = true,
+    superFastModeEnabled: Bool = false,
     useClipboardPaste: Bool = true,
     preventSystemSleep: Bool = true,
     recordingAudioBehavior: RecordingAudioBehavior = .doNothing,
@@ -205,6 +207,7 @@ public struct ToyLocalSettings: Codable, Equatable, Sendable {
     self.showDockIcon = showDockIcon
     self.selectedModel = selectedModel
     self.localModelPrewarmEnabled = localModelPrewarmEnabled
+    self.superFastModeEnabled = superFastModeEnabled
     self.useClipboardPaste = useClipboardPaste
     self.preventSystemSleep = preventSystemSleep
     self.recordingAudioBehavior = recordingAudioBehavior
