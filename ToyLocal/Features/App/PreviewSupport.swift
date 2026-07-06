@@ -11,7 +11,6 @@ enum AppPreviewState {
   static func makeStore() -> AppStore {
     let services = ServiceContainer()
     let transcripts = previewTranscripts()
-    services.settings.transcriptionHistory = TranscriptionHistory(history: transcripts)
     seedTranscriptStore(services.transcriptStore, transcripts: transcripts)
     let store = AppStore(services: services)
     configure(store)

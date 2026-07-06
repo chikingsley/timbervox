@@ -20,6 +20,7 @@ final class TranscriptionStore {
   var meter: Meter = .init(averagePower: 0, peakPower: 0)
   var sourceAppBundleID: String?
   var sourceAppName: String?
+  var livePartialText: String?
 
   // MARK: - Callbacks
 
@@ -30,13 +31,14 @@ final class TranscriptionStore {
   let settings: SettingsManager
   let transcriptionWorkflow: TranscriptionWorkflowService
   private let contextCapture: DictationContextCaptureClientLive
-  private let recording: RecordingClientLive
+  let recording: RecordingClientLive
   private let pasteboard: PasteboardClientLive
   let keyEventMonitor: KeyEventMonitorClientLive
   private let soundEffects: SoundEffectsClientLive
   private let sleepManagement: SleepManagementClientLive
   private let transcriptPersistence: TranscriptPersistenceClient
   private let transcriptHistoryPersistence: TranscriptHistoryPersistence
+  let cloudBaseURL: URL
 
   // MARK: - Task Handles
 
@@ -44,6 +46,7 @@ final class TranscriptionStore {
   @ObservationIgnored private var hotkeyMonitorTask: Task<Void, Never>?
   @ObservationIgnored private var transcriptionTask: Task<Void, Never>?
   @ObservationIgnored private var recordingStartTask: Task<Void, Never>?
+  @ObservationIgnored var realtimeSession: RealtimeDictationSession?
   @ObservationIgnored private var contextCaptureSession: DictationContextCaptureSession?
   @ObservationIgnored private var activeContextSnapshot: DictationContextSnapshot?
 
@@ -64,6 +67,7 @@ final class TranscriptionStore {
     self.sleepManagement = services.sleepManagement
     self.transcriptPersistence = services.transcriptPersistence
     self.transcriptHistoryPersistence = services.transcriptHistoryPersistence
+    self.cloudBaseURL = services.cloudBaseURL
     self.hotKeyProcessor = HotKeyProcessor(hotkey: HotKey(key: nil, modifiers: [.option]))
   }
 
@@ -167,6 +171,8 @@ final class TranscriptionStore {
         return
       }
       await recording.startRecording()
+      guard !Task.isCancelled else { return }
+      await startRealtimeSessionIfAvailable(settings: currentSettings)
     }
   }
 
@@ -197,6 +203,7 @@ final class TranscriptionStore {
     recordingStartTask = nil
     transcriptionTask?.cancel()
     transcriptionTask = nil
+    tearDownRealtimeSession()
     contextCaptureSession?.cancel()
     contextCaptureSession = nil
     activeContextSnapshot = nil
@@ -216,6 +223,7 @@ final class TranscriptionStore {
     textTransformState = .idle
     recordingStartTask?.cancel()
     recordingStartTask = nil
+    tearDownRealtimeSession()
     contextCaptureSession?.cancel()
     contextCaptureSession = nil
     activeContextSnapshot = nil
@@ -359,32 +367,6 @@ private extension TranscriptionStore {
     self.error = error.localizedDescription
   }
 
-  func applyTranscriptModifications(
-    _ result: String,
-    settings toyLocalSettings: ToyLocalSettings
-  ) -> String {
-    guard !settings.isRemappingScratchpadFocused else {
-      transcriptionFeatureLogger.info("Scratchpad focused; skipping word modifications")
-      return result
-    }
-
-    var output = result
-    if toyLocalSettings.wordRemovalsEnabled {
-      let removedResult = WordRemovalApplier.apply(output, removals: toyLocalSettings.wordRemovals)
-      if removedResult != output {
-        let enabledRemovalCount = toyLocalSettings.wordRemovals.filter(\.isEnabled).count
-        transcriptionFeatureLogger.info("Applied \(enabledRemovalCount) word removal(s)")
-      }
-      output = removedResult
-    }
-
-    let remappedResult = WordRemappingApplier.apply(output, remappings: toyLocalSettings.wordRemappings)
-    if remappedResult != output {
-      transcriptionFeatureLogger.info("Applied \(toyLocalSettings.wordRemappings.count) word remapping(s)")
-    }
-    return remappedResult
-  }
-
   func makeStopRecordingContext(at stopTime: Date) -> StopRecordingContext {
     let settingsSnapshot = settings.settings
     let startTime = recordingStartTime
@@ -458,21 +440,16 @@ private extension TranscriptionStore {
       guard let self else { return }
       await self.sleepManagement.allowSleep()
 
+      let realtimeSession = self.takeRealtimeSession()
       do {
         let capturedURL = await self.recording.stopRecording()
         await self.soundEffects.play(.stopRecording)
-        let signal = try RecordedAudioInspector.analyze(capturedURL)
-        transcriptionFeatureLogger.notice("Audio signal rms=\(signal.rms) peak=\(signal.peak) nonZero=\(signal.nonZeroSamples)")
-        guard !signal.isSilent else {
-          try? FileManager.default.removeItem(at: capturedURL)
-          throw SilentRecordingError()
-        }
-
-        let draft = try await self.transcriptionWorkflow.transcribe(
-          source: AudioSource(url: capturedURL, contentType: "audio/wav"),
-          workflow: workflow
-        ) { _ in }
-        let result = draft.text
+        let result = try await self.resolveTranscript(
+          capturedURL: capturedURL,
+          workflow: workflow,
+          realtimeSession: realtimeSession
+        )
+        self.livePartialText = nil
 
         transcriptionFeatureLogger.notice("Transcribed audio to text length \(result.count)")
         if let capturedContextSnapshot {
@@ -491,6 +468,8 @@ private extension TranscriptionStore {
           contextSnapshot: capturedContextSnapshot
         )
       } catch {
+        realtimeSession?.cancel()
+        self.livePartialText = nil
         transcriptionFeatureLogger.error("Transcription failed: \(error.localizedDescription)")
         self.handleTranscriptionError(error: error)
       }

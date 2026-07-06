@@ -30,7 +30,7 @@ struct MenuBarCopyLastTranscriptButton: View {
   ]
 
   var body: some View {
-    let lastText = store.settings.transcriptionHistory.history.first?.text
+    let lastText = store.lastTranscriptText
     let preview: String = {
       guard let text = lastText?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return "" }
       let snippet = text.prefix(40)

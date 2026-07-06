@@ -60,11 +60,6 @@ final class HistoryStore {
     refreshRecords()
   }
 
-  var transcriptionHistory: TranscriptionHistory {
-    get { settings.transcriptionHistory }
-    set { settings.transcriptionHistory = newValue }
-  }
-
   var saveTranscriptionHistory: Bool {
     settings.settings.saveTranscriptionHistory
   }

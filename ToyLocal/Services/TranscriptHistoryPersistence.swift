@@ -25,7 +25,6 @@ final class TranscriptHistoryPersistence {
     do {
       let imported = try transcriptStore.importLegacy(settings.transcriptionHistory.history)
       let removed = try transcriptStore.sweep(retention: settings.settings.recordingRetention)
-      removeSweptTranscriptsFromJSONHistory(removed)
       deleteAudio(for: removed)
       transcriptHistoryPersistenceLogger.info(
         "TranscriptStore startup import=\(imported) sweepRemoved=\(removed.count)"
@@ -42,7 +41,6 @@ final class TranscriptHistoryPersistence {
     modeName: String?,
     settingsSnapshot: ToyLocalSettings
   ) {
-    settings.transcriptionHistory.history.insert(transcript, at: 0)
     insertRecord(for: transcript, rawText: rawText, finalText: finalText, modeName: modeName)
     trimHistory(maxEntries: settingsSnapshot.maxHistoryEntries)
     notifyChange()
@@ -55,7 +53,6 @@ final class TranscriptHistoryPersistence {
       audioPath: URL(fileURLWithPath: ""),
       duration: 0
     )
-    settings.transcriptionHistory.history.insert(transcript, at: 0)
     insertRecord(for: transcript, rawText: text, finalText: text, modeName: nil)
     trimHistory(maxEntries: settingsSnapshot.maxHistoryEntries)
     notifyChange()
@@ -70,7 +67,6 @@ final class TranscriptHistoryPersistence {
   func deleteRecord(id: String) -> TranscriptRecord? {
     do {
       let record = try transcriptStore.delete(id: id)
-      settings.transcriptionHistory.history.removeAll { $0.id.uuidString == id }
       if let record {
         deleteAudio(for: [record])
       }
@@ -82,8 +78,11 @@ final class TranscriptHistoryPersistence {
     }
   }
 
-  func deleteAudio(for transcript: Transcript) {
-    deleteAudio(for: [transcript])
+  func deleteAllRecords() {
+    let records = (try? transcriptStore.records()) ?? []
+    for record in records {
+      deleteRecord(id: record.id)
+    }
   }
 
   private func insertRecord(
@@ -103,20 +102,10 @@ final class TranscriptHistoryPersistence {
 
   private func trimHistory(maxEntries: Int?) {
     guard let maxEntries, maxEntries > 0 else { return }
-    var removedWithoutRecords: [Transcript] = []
-    while settings.transcriptionHistory.history.count > maxEntries {
-      guard let transcript = settings.transcriptionHistory.history.popLast() else { break }
-      if deleteRecord(id: transcript.id) == nil {
-        removedWithoutRecords.append(transcript)
-      }
+    guard let records = try? transcriptStore.records(), records.count > maxEntries else { return }
+    for record in records.suffix(records.count - maxEntries) {
+      deleteRecord(id: record.id)
     }
-    deleteAudio(for: removedWithoutRecords)
-  }
-
-  private func removeSweptTranscriptsFromJSONHistory(_ records: [TranscriptRecord]) {
-    guard !records.isEmpty else { return }
-    let removedIDs = Set(records.map(\.id))
-    settings.transcriptionHistory.history.removeAll { removedIDs.contains($0.id.uuidString) }
   }
 
   private func deleteAudio(for records: [TranscriptRecord]) {

@@ -116,6 +116,8 @@ const closeSocket = (socket: WebSocket, code: number, reason: string): void => {
   }
 };
 
+const PROVIDER_FLUSH_TIMEOUT_MS = 3000;
+
 export class RealtimeSession {
   private audioBytes = 0;
   private readonly env: Env;
@@ -123,6 +125,8 @@ export class RealtimeSession {
   private provider: RealtimeProviderId | null = null;
   private providerSocket: WebSocket | null = null;
   private providerSocketPromise: Promise<WebSocket> | null = null;
+  private providerClosed = false;
+  private providerClosedWaiters: Array<() => void> = [];
   private persisted = false;
   private readonly state: DurableObjectState;
   private startedAt: string | null = null;
@@ -250,9 +254,14 @@ export class RealtimeSession {
       "type" in message &&
       message.type === "close"
     ) {
-      await this.withProviderSocket((providerSocket) => {
-        this.closeProviderStream(providerSocket, config.provider);
-      });
+      try {
+        await this.withProviderSocket((providerSocket) => {
+          this.closeProviderStream(providerSocket, config.provider);
+        });
+        await this.waitForProviderClose(PROVIDER_FLUSH_TIMEOUT_MS);
+      } catch {
+        // No provider socket to flush; end the session directly.
+      }
       socket.send(
         json({
           audio_bytes: this.audioBytes,
@@ -383,6 +392,7 @@ export class RealtimeSession {
       );
     });
     providerSocket.addEventListener("close", () => {
+      this.resolveProviderClosed();
       safeSend(
         clientSocket,
         json({
@@ -394,6 +404,7 @@ export class RealtimeSession {
       this.state.waitUntil(this.persistResult(config, "succeeded"));
     });
     providerSocket.addEventListener("error", () => {
+      this.resolveProviderClosed();
       safeSend(
         clientSocket,
         json({
@@ -405,6 +416,30 @@ export class RealtimeSession {
       this.state.waitUntil(
         this.persistResult(config, "failed", "provider error")
       );
+    });
+  }
+
+  private resolveProviderClosed(): void {
+    this.providerClosed = true;
+    const waiters = this.providerClosedWaiters;
+    this.providerClosedWaiters = [];
+    for (const waiter of waiters) {
+      waiter();
+    }
+  }
+
+  private waitForProviderClose(timeoutMs: number): Promise<void> {
+    if (this.providerClosed) {
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        resolve();
+      }, timeoutMs);
+      this.providerClosedWaiters.push(() => {
+        clearTimeout(timer);
+        resolve();
+      });
     });
   }
 

@@ -111,6 +111,7 @@ final class CaptureEngineController: @unchecked Sendable {
   private var configurationChangeObserver: NSObjectProtocol?
   private var activeRecording: ActiveRecording?
   private var keepWarmBuffer = false
+  private var liveSampleConsumer: (@Sendable ([Float]) -> Void)?
   private var lastProcessedBufferAt: Date?
   private var recentCallbackIntervals: [TimeInterval] = []
   private var recentBufferDurations: [TimeInterval] = []
@@ -331,6 +332,12 @@ final class CaptureEngineController: @unchecked Sendable {
     }
   }
 
+  func setLiveSampleConsumer(_ consumer: (@Sendable ([Float]) -> Void)?) {
+    processingQueue.sync {
+      liveSampleConsumer = consumer
+    }
+  }
+
   private func enqueue(_ buffer: AVAudioPCMBuffer) {
     guard let copy = clone(buffer) else { return }
     processingQueue.async { [weak self] in
@@ -360,6 +367,7 @@ final class CaptureEngineController: @unchecked Sendable {
 
     if activeRecording != nil {
       meterContinuation.yield(meter(for: samples, count: sampleCount))
+      liveSampleConsumer?(Array(UnsafeBufferPointer(start: samples, count: sampleCount)))
     }
 
     guard var recording = activeRecording else { return }

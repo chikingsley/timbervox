@@ -25,7 +25,7 @@ final class TranscriptStoreRuntimeTests: XCTestCase {
     XCTAssertEqual(record?.finalText, "Imported transcript")
   }
 
-  func testServiceContainerStartupSweepMirrorsRetentionAndDeletesAudio() async throws {
+  func testServiceContainerStartupSweepEnforcesRetentionAndDeletesAudio() async throws {
     let settings = SettingsManager()
     var toyLocalSettings = settings.settings
     toyLocalSettings.recordingRetention = .oneWeek
@@ -51,7 +51,6 @@ final class TranscriptStoreRuntimeTests: XCTestCase {
     )
 
     XCTAssertEqual(try services.transcriptStore.records().map(\.id), [retained.id.uuidString])
-    XCTAssertEqual(settings.transcriptionHistory.history.map(\.id), [retained.id])
     try await waitForDeletedAudio(id: expired.id, recorder: recorder)
   }
 
@@ -70,7 +69,7 @@ final class TranscriptStoreRuntimeTests: XCTestCase {
     historyStore.deleteTranscript(transcript.id.uuidString)
 
     XCTAssertNil(try services.transcriptStore.record(id: transcript.id.uuidString))
-    XCTAssertTrue(settings.transcriptionHistory.history.isEmpty)
+    XCTAssertEqual(try services.transcriptStore.count(), 0)
   }
 
   private func makeTranscript(

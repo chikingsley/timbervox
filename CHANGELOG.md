@@ -4,6 +4,9 @@
 
 ### Patch Changes
 
+- Realtime cloud dictation: when the selected model has a realtime route, recordings stream to the cloud session live and the final transcript arrives at stop time, with automatic fallback to batch upload; live partial text is published for the future recording HUD.
+- The realtime worker session now holds the client connection open until the provider flushes its final transcript on close, so utterance endings are no longer lost.
+- Removed the AVAudioRecorder fallback (the capture engine is the sole microphone backend) and the legacy JSON history mirror (the SQLite transcript store is the single source of truth; the JSON file is read once for migration).
 - Added a realtime transcription WebSocket client in ToyLocalCore (URLSessionWebSocketTask, no third-party dependency) with event parsing for the worker's control envelopes and raw Deepgram/Mistral provider events, a linear16 encoder, nine unit tests, and an opt-in live integration test — verified end to end against wrangler dev with real Deepgram partials.
 - Ported the Hex upstream recording-reliability work by behavior: a new capture engine (AVAudioEngine) is the primary recording backend with warm-mic Super Fast Mode (pre-roll so the first word is never clipped), adaptive stop-grace so endings are never clipped, wake/route-change observers with deferred rebuilds, stale-stop session guards, microphone identity by device UID with legacy migration, media pause/mute rollbacks on cancelled sessions, cancellable recording starts, stop chime after capture finalizes, audio cleanup for empty transcriptions, and single-fire History playback completion.
 

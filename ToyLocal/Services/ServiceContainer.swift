@@ -16,6 +16,7 @@ final class ServiceContainer {
   let transcriptionWorkflow: TranscriptionWorkflowService
   let contextCapture: DictationContextCaptureClientLive
   let cloud: ToyLocalCloudClient
+  let cloudBaseURL: URL
   let pasteboard: PasteboardClientLive
   let soundEffects: SoundEffectsClientLive
   let streamingAudio: StreamingAudioClientLive
@@ -41,7 +42,9 @@ final class ServiceContainer {
     Task { await recording.startObservingSystemChanges() }
     self.keyEventMonitor = KeyEventMonitorClientLive(settingsManager: settings)
     let transcription = TranscriptionClientLive()
-    let cloud = ToyLocalCloudClient(baseURL: Self.cloudBaseURL())
+    let cloudBaseURL = Self.cloudBaseURL()
+    self.cloudBaseURL = cloudBaseURL
+    let cloud = ToyLocalCloudClient(baseURL: cloudBaseURL)
     self.transcription = transcription
     self.transcriptionWorkflow = TranscriptionWorkflowService(transcription: transcription, cloud: cloud)
     self.contextCapture = DictationContextCaptureClientLive(settingsManager: settings)

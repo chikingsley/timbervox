@@ -102,11 +102,6 @@ final class SettingsStore {
     set { settings.isRemappingScratchpadFocused = newValue }
   }
 
-  var transcriptionHistory: TranscriptionHistory {
-    get { settings.transcriptionHistory }
-    set { settings.transcriptionHistory = newValue }
-  }
-
   var hotkeyPermissionState: HotkeyPermissionState {
     settings.hotkeyPermissionState
   }
@@ -283,12 +278,7 @@ final class SettingsStore {
     toyLocalSettings.saveTranscriptionHistory = enabled
 
     if !enabled {
-      let transcripts = settings.transcriptionHistory.history
-      settings.transcriptionHistory.history.removeAll()
-      for transcript in transcripts {
-        transcriptHistoryPersistence.deleteRecord(id: transcript.id)
-        transcriptHistoryPersistence.deleteAudio(for: transcript)
-      }
+      transcriptHistoryPersistence.deleteAllRecords()
     }
   }
 

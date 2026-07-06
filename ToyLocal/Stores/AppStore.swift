@@ -23,6 +23,7 @@ final class AppStore {
   // MARK: - Dependencies
 
   private let settingsManager: SettingsManager
+  private let transcriptStore: TranscriptStore
   private let keyEventMonitor: KeyEventMonitorClientLive
   private let pasteboard: PasteboardClientLive
   private let transcriptionClient: TranscriptionClientLive
@@ -45,6 +46,7 @@ final class AppStore {
 
   init(services: ServiceContainer) {
     self.settingsManager = services.settings
+    self.transcriptStore = services.transcriptStore
     self.keyEventMonitor = services.keyEventMonitor
     self.pasteboard = services.pasteboard
     self.transcriptionClient = services.transcription
@@ -93,17 +95,6 @@ final class AppStore {
 
   func setActiveTab(_ tab: ActiveTab) {
     activeTab = tab
-  }
-
-  // MARK: - Paste Last Transcript
-
-  func pasteLastTranscript() {
-    guard let lastTranscript = settingsManager.transcriptionHistory.history.first?.text else {
-      return
-    }
-    Task {
-      _ = await pasteboard.paste(text: lastTranscript)
-    }
   }
 
   // MARK: - Permissions
@@ -366,6 +357,22 @@ final class AppStore {
           self.checkPermissions()
         }
       }
+    }
+  }
+}
+
+extension AppStore {
+  var lastTranscriptText: String? {
+    guard let record = try? transcriptStore.records(limit: 1).first else { return nil }
+    return record.finalText
+  }
+
+  func pasteLastTranscript() {
+    guard let lastTranscript = lastTranscriptText else {
+      return
+    }
+    Task {
+      _ = await pasteboard.paste(text: lastTranscript)
     }
   }
 }

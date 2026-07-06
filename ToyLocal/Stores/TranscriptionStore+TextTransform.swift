@@ -1,6 +1,8 @@
 import Foundation
 import ToyLocalCore
 
+private let textTransformLogger = ToyLocalLog.transcription
+
 struct TextTransformApplicationResult {
   let text: String
   let state: TextTransformRunState
@@ -110,5 +112,31 @@ extension TranscriptionStore {
       return .custom(toyLocalSettings.customTextTransformInstructions)
     }
     return TextTransformPreset.builtIn(id: presetID)
+  }
+
+  func applyTranscriptModifications(
+    _ result: String,
+    settings toyLocalSettings: ToyLocalSettings
+  ) -> String {
+    guard !settings.isRemappingScratchpadFocused else {
+      textTransformLogger.info("Scratchpad focused; skipping word modifications")
+      return result
+    }
+
+    var output = result
+    if toyLocalSettings.wordRemovalsEnabled {
+      let removedResult = WordRemovalApplier.apply(output, removals: toyLocalSettings.wordRemovals)
+      if removedResult != output {
+        let enabledRemovalCount = toyLocalSettings.wordRemovals.filter(\.isEnabled).count
+        textTransformLogger.info("Applied \(enabledRemovalCount) word removal(s)")
+      }
+      output = removedResult
+    }
+
+    let remappedResult = WordRemappingApplier.apply(output, remappings: toyLocalSettings.wordRemappings)
+    if remappedResult != output {
+      textTransformLogger.info("Applied \(toyLocalSettings.wordRemappings.count) word remapping(s)")
+    }
+    return remappedResult
   }
 }

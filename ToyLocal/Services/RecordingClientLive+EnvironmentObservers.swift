@@ -124,25 +124,21 @@ extension RecordingClientLive {
   private func handleCaptureEnvironmentChange(reason: String) async {
     let settings = await settingsManager.settings
     let currentInputDevice = RecordingAudioHardware.getDefaultInputDevice()
-    let isRecorderRecording = recorder?.isRecording == true
-    let isEngineRecording = captureController.isRecording
-    let isRecordingActive = isRecorderRecording || isEngineRecording
+    let isRecordingActive = captureController.isRecording
 
     let environmentDetails =
       "activeRecording=\(isRecordingActive) input=\(self.describeDevice(currentInputDevice)) "
-      + "captureEngineArmed=\(self.captureController.isRunning) primed=\(self.isRecorderPrimedForNextSession)"
+      + "captureEngineArmed=\(self.captureController.isRunning)"
     environmentLogger.notice("Capture environment changed reason=\(reason) \(environmentDetails)")
 
     if isRecordingActive {
       deferredCaptureRestartReason = reason
-      invalidatePrimedState()
       environmentLogger.notice("Deferring capture restart until current recording stops reason=\(reason)")
       return
     }
 
     deferredCaptureRestartReason = nil
     if settings.superFastModeEnabled {
-      releaseRecorder(reason: "environment-change-\(reason)")
       captureControllerNeedsRestartReason = reason
       captureController.clearWarmBuffer()
       environmentLogger.notice("Deferring capture engine rebuild until next recording reason=\(reason)")
@@ -151,7 +147,6 @@ extension RecordingClientLive {
 
     applyPreferredInputDevice(settings: settings)
     stopCaptureController(reason: reason)
-    releaseRecorder(reason: "environment-change-\(reason)")
     environmentLogger.debug("Standard mode uses on-demand capture startup after reason=\(reason)")
   }
 
@@ -199,20 +194,6 @@ extension RecordingClientLive {
     captureControllerDeviceID = nil
   }
 
-  func releaseRecorder(reason: String) {
-    if recorder != nil {
-      environmentLogger.notice(
-        "Releasing recorder reason=\(reason) primed=\(self.isRecorderPrimedForNextSession) input=\(self.describeDevice(self.lastPrimedDeviceID))"
-      )
-    }
-    stopMeterTask()
-    if recorder?.isRecording == true {
-      recorder?.stop()
-    }
-    recorder = nil
-    invalidatePrimedState()
-  }
-
   func formatDuration(_ duration: TimeInterval?) -> String {
     guard let duration else { return "n/a" }
     return String(format: "%.3fs", duration)
@@ -228,9 +209,7 @@ extension RecordingClientLive {
 
   func logRecordingStartRequest(mode: CaptureRecordingMode, inputDeviceID: AudioDeviceID?) {
     let idleDuration = lastRecordingEndedAt.map { Date().timeIntervalSince($0) }
-    let requestDetails =
-      "idle=\(self.formatDuration(idleDuration)) input=\(self.describeDevice(inputDeviceID)) "
-      + "fallbackPrimed=\(self.isRecorderPrimedForNextSession)"
+    let requestDetails = "idle=\(self.formatDuration(idleDuration)) input=\(self.describeDevice(inputDeviceID))"
     environmentLogger.notice("Recording requested mode=\(mode.rawValue) \(requestDetails)")
   }
 }
