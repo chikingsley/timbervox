@@ -8,7 +8,7 @@ let package = Package(
     .executable(name: "timbervox-live", targets: ["TimberVoxLiveDriver"])
   ],
   dependencies: [
-    .package(path: "../TimberVoxCore"),
+    .package(path: "../../packages/timbervox-core"),
     .package(url: "https://github.com/apple/swift-argument-parser", from: "1.5.0"),
     .package(url: "https://github.com/jpsim/Yams", from: "5.1.3"),
   ],
@@ -16,7 +16,7 @@ let package = Package(
     .executableTarget(
       name: "TimberVoxLiveDriver",
       dependencies: [
-        "TimberVoxCore",
+        .product(name: "TimberVoxCore", package: "timbervox-core"),
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
         "Yams",
       ],

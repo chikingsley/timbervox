@@ -46,17 +46,15 @@ implicitly_unwrapped_optional:
 
 excluded:
   - build
-  - TimberVox/Prototype
+  - apps/mac/Sources/Prototype
   - .build
   - .tmp
   - SourcePackages
   - DerivedData
   - .swiftpm
   - TimberVox.xcodeproj
-  - TimberVoxTests
-  - TimberVoxCore/.build
-  - TimberVoxBackendPrototype
-  - TimberVoxLiveDriver/.build
+  - apps/mac/Tests
+  - tools/timbervox-probe
   - TimberVoxTextTransformDriver/.build
   - TimberVoxCore/Sources/TimberVoxCore/TextGeneration/Prompting/TextTransformPreset.swift
   - _archive

@@ -9,7 +9,28 @@ Or download via Homebrew:
 brew install --cask timbervox
 ```
 
-I've opened-sourced the project in the hopes that others will find it useful. `TimberVox` uses [FluidAudio](https://github.com/FluidInference/FluidAudio) for on-device transcription, with Parakeet models currently wired into the app. The app is structured with SwiftUI, Observation (`@Observable`) stores, async services, and a small pure-Swift core package for testable hotkey/transcript logic.
+`TimberVox` uses [FluidAudio](https://github.com/FluidInference/FluidAudio) for on-device transcription, with Parakeet models currently wired into the app. The app is structured with SwiftUI, Observation (`@Observable`) stores, async services, and a small pure-Swift core package for testable hotkey/transcript logic.
+
+## Repository layout
+
+This is a product monorepo following the [repo structure standard](docs/repo-structure-standard.md):
+
+```text
+apps/mac/            macOS app (Sources / Resources / Config / Tests)
+packages/
+  timbervox-core/    shared Apple-native Swift core
+  timbervox-contracts/  cross-platform API contracts (mac + future Expo/web)
+services/
+  timbervox-api/     Cloudflare Worker API (timbervox.peacockery.studio)
+tools/
+  timbervox-cli/     Swift dev/automation CLI (timbervox-live)
+  timbervox-probe/   backend model probe
+  release/           App Store export/upload scripts
+docs/                repo-wide standards and notes
+project.yml          XcodeGen source of truth -> TimberVox.xcodeproj (generated)
+```
+
+**Xcode entrypoint:** the project is generated from `project.yml` by [XcodeGen](https://github.com/yonaskolb/XcodeGen). Run `just open` to generate and open `TimberVox.xcodeproj` (the generated project is not committed).
 
 ## Instructions
 
@@ -58,9 +79,9 @@ Run individual pieces:
 ```bash
 just --list
 just check
-swift format lint --recursive --configuration .swift-format TimberVox TimberVoxCore
+swift format lint --recursive --configuration .swift-format apps/mac/Sources packages/timbervox-core/Sources
 swiftlint lint --quiet
-cd TimberVoxCore && swift test --parallel
+cd packages/timbervox-core && swift test --parallel
 xcodebuild test -project TimberVox.xcodeproj -scheme "TimberVox" -destination "platform=macOS,arch=arm64" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
 xcodebuild build -project TimberVox.xcodeproj -scheme "TimberVox" -configuration Release -destination "platform=macOS,arch=arm64" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
 ```
@@ -74,4 +95,4 @@ just tcc-reset-release
 
 ## License
 
-This project is licensed under the MIT License. See `LICENSE` for details.
+Proprietary. All rights reserved.

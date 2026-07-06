@@ -1,0 +1,8 @@
+{
+  "name": "@timbervox/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "description": "Shared API contracts and fixtures for TimberVox clients and services."
+}

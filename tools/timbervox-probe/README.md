@@ -16,12 +16,12 @@ swift run TimberVoxBackendPrototype inventory
 swift run TimberVoxBackendPrototype runs
 swift run TimberVoxBackendPrototype coverage
 swift run TimberVoxBackendPrototype artifacts
-swift run TimberVoxBackendPrototype diagnostics --audio ../TimberVoxCloudflareApi/tests/fixtures/audio/asr-smoke.wav --scope quick
-swift run TimberVoxBackendPrototype asr --model parakeet-tdt-ctc-110m-coreml --audio ../TimberVoxCloudflareApi/tests/fixtures/audio/asr-smoke.wav
-swift run TimberVoxBackendPrototype vad --audio ../TimberVoxCloudflareApi/tests/fixtures/audio/asr-smoke.wav
-swift run TimberVoxBackendPrototype diarize --model sortformer-fast-v2.1 --audio ../TimberVoxCloudflareApi/tests/fixtures/audio/asr-smoke.wav
-swift run TimberVoxBackendPrototype keyword --terms "FluidAudio,Parakeet" --audio ../TimberVoxCloudflareApi/tests/fixtures/audio/asr-smoke.wav
-DEEPGRAM_API_KEY=... swift run TimberVoxBackendPrototype deepgram --model nova-3 --audio ../TimberVoxCloudflareApi/tests/fixtures/audio/asr-smoke.wav --diarize true
+swift run TimberVoxBackendPrototype diagnostics --audio ../../services/timbervox-api/tests/fixtures/audio/asr-smoke.wav --scope quick
+swift run TimberVoxBackendPrototype asr --model parakeet-tdt-ctc-110m-coreml --audio ../../services/timbervox-api/tests/fixtures/audio/asr-smoke.wav
+swift run TimberVoxBackendPrototype vad --audio ../../services/timbervox-api/tests/fixtures/audio/asr-smoke.wav
+swift run TimberVoxBackendPrototype diarize --model sortformer-fast-v2.1 --audio ../../services/timbervox-api/tests/fixtures/audio/asr-smoke.wav
+swift run TimberVoxBackendPrototype keyword --terms "FluidAudio,Parakeet" --audio ../../services/timbervox-api/tests/fixtures/audio/asr-smoke.wav
+DEEPGRAM_API_KEY=... swift run TimberVoxBackendPrototype deepgram --model nova-3 --audio ../../services/timbervox-api/tests/fixtures/audio/asr-smoke.wav --diarize true
 ```
 
 `runs` writes `Runs/index.json`, which indexes completed, failed, interrupted, raw-provider, and diagnostic artifacts without rerunning models.

@@ -5,17 +5,14 @@ updates/
 .env
 .env.*
 
-# Xcode
-*.xcodeproj/xcuserdata/
-*.xcworkspace/xcuserdata/
+# Xcode — project is generated from project.yml via XcodeGen
+*.xcodeproj/
+*.xcworkspace/
 *.xcuserstate
 buildServer.json
 ExportOptions.plist
-TimberVoxCore/.build
-TimberVoxLiveDriver/.build
-TimberVoxTextTransformDriver/.build
-TimberVoxTextTransformDriver/Runs/
-TimberVoxCore/.swiftpm/xcode/xcuserdata/kit.xcuserdatad/xcschemes
+.build/
+.swiftpm/
 FluidAudio/
 node_modules/
 .npm-cache/
