@@ -26,3 +26,8 @@ node_modules/
 
 # Local (untracked) build configuration and keys
 Config/*.local.xcconfig
+
+# Private keys and personal documents (never commit)
+Config/keys/
+*.p8
+docs/agreementsFiles/
