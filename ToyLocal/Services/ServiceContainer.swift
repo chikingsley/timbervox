@@ -78,6 +78,6 @@ final class ServiceContainer {
     {
       return url
     }
-    return URL(string: "http://127.0.0.1:8787")!
+    return URL(string: "https://toylocal.peacockery.studio")!
   }
 }

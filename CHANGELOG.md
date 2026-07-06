@@ -4,6 +4,7 @@
 
 ### Patch Changes
 
+- Deployed the cloud worker to https://toylocal.peacockery.studio and made it the app's default cloud endpoint (env override retained for local development); realtime streaming verified live against production.
 - Realtime cloud dictation: when the selected model has a realtime route, recordings stream to the cloud session live and the final transcript arrives at stop time, with automatic fallback to batch upload; live partial text is published for the future recording HUD.
 - The realtime worker session now holds the client connection open until the provider flushes its final transcript on close, so utterance endings are no longer lost.
 - Removed the AVAudioRecorder fallback (the capture engine is the sole microphone backend) and the legacy JSON history mirror (the SQLite transcript store is the single source of truth; the JSON file is read once for migration).

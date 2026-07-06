@@ -3,6 +3,12 @@
   "name": "toy-local-cloudflare-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-07-01",
+  "routes": [
+    {
+      "pattern": "toylocal.peacockery.studio",
+      "custom_domain": true
+    }
+  ],
   "vars": {
     "CLOUDFLARE_ACCOUNT_ID": "5888cce2210bbb0bda4b77fd8a9018e1",
     "TOY_LOCAL_USAGE_DATASET": "toy_local_usage"
