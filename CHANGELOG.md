@@ -4,6 +4,7 @@
 
 ### Patch Changes
 
+- Added a realtime transcription WebSocket client in ToyLocalCore (URLSessionWebSocketTask, no third-party dependency) with event parsing for the worker's control envelopes and raw Deepgram/Mistral provider events, a linear16 encoder, nine unit tests, and an opt-in live integration test — verified end to end against wrangler dev with real Deepgram partials.
 - Ported the Hex upstream recording-reliability work by behavior: a new capture engine (AVAudioEngine) is the primary recording backend with warm-mic Super Fast Mode (pre-roll so the first word is never clipped), adaptive stop-grace so endings are never clipped, wake/route-change observers with deferred rebuilds, stale-stop session guards, microphone identity by device UID with legacy migration, media pause/mute rollbacks on cancelled sessions, cancellable recording starts, stop chime after capture finalizes, audio cleanup for empty transcriptions, and single-fire History playback completion.
 
 - Moved agent rules, gates, and resource references into a root `AGENTS.md`; `docs/TODO.md` now lists only work items, and completed phase notes moved to `docs/archive/phase-log-2026-07-04.md`.
