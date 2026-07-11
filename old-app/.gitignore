@@ -1,0 +1,30 @@
+build/
+updates/
+.vscode
+.DS_Store
+.env
+.env.*
+
+# Xcode — project is generated from project.yml via XcodeGen
+*.xcodeproj/
+*.xcworkspace/
+*.xcuserstate
+buildServer.json
+ExportOptions.plist
+.build/
+.swiftpm/
+FluidAudio/
+node_modules/
+.npm-cache/
+.tmp/
+
+# Claude
+.claude/
+
+# Local (untracked) build configuration and keys
+Config/*.local.xcconfig
+
+# Private keys and personal documents (never commit)
+Config/keys/
+*.p8
+docs/agreementsFiles/

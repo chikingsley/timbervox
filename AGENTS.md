@@ -1,62 +1,31 @@
-# AGENTS.md — how to work in this repo
+# TimberVox working rules
 
-Every agent (Claude, Codex, or otherwise) reads this file before touching anything. The work list lives in docs/TODO.md and contains ONLY work items.
+`docs/TODO.md` is the active work list. `docs/REBUILD.md` is the product roadmap. Do not commit unless the user asks.
 
-## Non-negotiable rules
+## Product and architecture
 
-- No commits until explicitly requested.
-- Every change names its verification gate and runs it.
-- Files stay under 500 lines; splits follow real responsibility boundaries, never mechanical line cuts. Type bodies stay under 300 lines.
-- Numbers are named constants. Never repeat a magic number.
-- No code comments in UI code.
-- Components own their sizing and behavior. Call sites do not pass widths, heights, row counts, or insets unless that call site is a documented exception. If two call sites configure the same thing, the component is wrong — fix the component.
-- Take UI direction literally. The prototype and Chi's screenshots are the spec; copy physically, do not reinterpret.
-- When behavior is uncertain or something fails, read the latest OFFICIAL documentation for the technology in question. Never curate product facts from secondary sources (registries, code lists, memory).
-- Choose the mainstream approach first; note modern alternatives as caveats in docs/TODO.md.
-- Markdown in docs/ uses complete sentences and checkbox lists. Never hard-wrap lines — one sentence or bullet stays on one line and the editor soft-wraps.
+- Port from `old-app/` deliberately; never bulk-copy its architecture.
+- A feature lands only when its visible behavior and full runtime path work.
+- The Worker catalog is authoritative for cloud models. Every exposed transcription route has an exact supported-language list; models with unknown language support are excluded.
+- Dictation means the whole record-to-delivery workflow. Transcription means only speech-to-text.
+- `DictationController` owns observable UI state and user commands. Workflow, realtime assembly, persistence, and provider code live outside it.
 
-## Gates
+## Swift consistency
 
-Fast gate (every change):
-- `swift format lint --recursive --configuration .swift-format apps/mac/Sources packages/timbervox-core/Sources tools/timbervox-cli/Sources`
-- `swiftlint lint --quiet`
-- `cd packages/timbervox-core && swift test --parallel`
-- `just test-app`
+- Run Apple `swift format`; do not run the separate `swiftformat` tool.
+- SwiftLint is strict. Do not add a baseline or disable a rule merely to make the gate pass.
+- Normalize optional booleans and collections at decoding/framework boundaries. Views consume nonoptional named facts.
+- Do not write `== true`, `== false`, or `.isEmpty == false`.
+- Capability names use `supports...` consistently. Transport support is derived from route existence; route-specific capabilities are explicit API fields.
 
-Live gate (user-visible behavior):
-- `just live-suite permission-onboarding debug`
-- `just live-suite permission-regression debug`
+## Native-first UI
 
-Release gate: Release xcodebuild, signed Debug from Terminal, notarized artifacts, Sparkle appcast with strictly increasing CFBundleVersion.
+- Use stock SwiftUI/AppKit controls first: `NavigationSplitView`, `List`, `Form`, `Section`, `Picker`, `Toggle`, `TextField`, `Button`, `Table`, and `.searchable`.
+- Custom composition is allowed only when no stock control satisfies the real interaction. Isolate it in a named component and verify it visually.
+- AppKit is appropriate for macOS behavior SwiftUI does not supply, such as non-activating panels or a true combo box.
 
-Visual verification: render the relevant #Preview (Xcode MCP RenderPreview) in BOTH color schemes for any UI change. Preview renders cannot show child NSWindows (popovers in the real app) or real window chrome — those need a real app relaunch, and reports must say so instead of claiming verification.
+## Required gates
 
-## UI system (locked)
-
-- Design tokens only: `TLTheme` + `Shadcn` named steps. No raw hex or opacity literals in panes.
-- One component per file under apps/mac/Sources/UI/ with the `TL` prefix.
-- `TLSettingsCard` interleaves dividers automatically; rows are `TLSettingsRow`/`TLSettingsToggleRow`; dropdowns are `TLOptionMenu` popovers (segmented controls excepted); never system Menu/Picker in panes.
-- Dropdown panels show a bounded number of rows then scroll; the bound lives INSIDE the component.
-- Shortcut recorder state machine lives in `TLShortcutRecorder`; real capture goes through `SettingsStore` capture modes per docs/hotkey-semantics.md.
-- Geometry plumbing uses `onGeometryChange` ONLY (GeometryReader + preference keys silently broke anchor delivery once already).
-- Popovers require `TLFloatingHost`; every pane preview wraps in it.
-- Headers are page-owned; no pane name in the header; empty header slot shows the microphone pill.
-
-## Resources (use them; do not re-derive)
-
-- docs/TODO.md — the work list. docs/app-organization.md — the IA spec. docs/hotkey-semantics.md — hotkey engine behavior. docs/recorders/ — parked recorder HUD spec. docs/archive/ — history.
-- CHANGELOG.md (repo root) — every landed change gets one line under Unreleased.
-- Chat history across all agents: `chat-sync` skill (search before re-deriving decisions; sessions cover Superwhisper reverse-engineering, storage schema findings, chrome research).
-- Reference apps ON THIS MACHINE: /Applications/superwhisper.app (primary design reference; its SQLite/GRDB schema was inspected and documented), /Applications/MacWhisper.app (secondary; competitive target).
-- ~/GitHub/superwhisper-api — reverse-engineered wire contract, mode files, captured prompts, and superwhisper-ui-clone (exact CSS values, layouts).
-- tools/timbervox-probe/Runs/ — 69 recorded provider responses (Deepgram raw included). Replay before any live call; keep live calls to 3–5 per feature.
-- Debug deep links (`timbervox-debug://`): state, check-permissions, show-onboarding, download-model, transcribe-file?model=&path=, text-transform?text=, quit. These drive REAL runs from a shell.
-- tools/timbervox-cli — launch/AX-drive the real app; `just live-suite`.
-- API keys: services/timbervox-api/.env (MISTRAL_API_KEY, DEEPGRAM_API_KEY, TIMBERVOX_ADMIN_TOKEN). License minting runs against local `wrangler dev` only; the deployed admin token is not retrievable. Wrangler ignores .env when .dev.vars exists — keep the two in sync or use only .env.
-- Codex dispatch (when Claude orchestrates): `codex exec --sandbox workspace-write --model gpt-5.5 -c model_reasoning_effort="xhigh" "<brief>" < /dev/null` — stdin MUST be closed or codex hangs. Codex sandboxes cannot run xcodebuild or default-path swiftlint caches; the auditor runs those after.
-
-## Testability classes (used in docs/TODO.md)
-
-- [A] agent-verifiable end to end (unit test, debug link, live driver, replayed fixture).
-- [B] agent wires and backend-tests; Chi does the visual/interactive pass.
-- [C] needs human perception or hardware; agent stages, Chi verifies.
+- Run `just format-check`, `just lint`, `just test`, and `just check-build` for Swift changes.
+- Run `cd TimberVoxAPI && pnpm run check && pnpm run test:integration` for Worker changes. Mocked contract tests are not accepted as verification.
+- Report documentation-only work as documentation-only. A green build does not prove live dictation behavior.

@@ -13,7 +13,6 @@ buildServer.json
 ExportOptions.plist
 .build/
 .swiftpm/
-FluidAudio/
 node_modules/
 .npm-cache/
 .tmp/
@@ -21,10 +20,7 @@ node_modules/
 # Claude
 .claude/
 
-# Local (untracked) build configuration and keys
-Config/*.local.xcconfig
-
 # Private keys and personal documents (never commit)
 Config/keys/
 *.p8
-docs/agreementsFiles/
+old-app/docs/agreementsFiles/

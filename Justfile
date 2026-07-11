@@ -1,86 +1,101 @@
-set shell := ["/bin/zsh", "-f", "-cu"]
+default: build
 
-default:
-  just --list
-
-# Generate TimberVox.xcodeproj from project.yml (the source of truth)
+# Regenerate TimberVox.xcodeproj from project.yml (run after any file add/move/delete)
 generate:
-  xcodegen generate
+    xcodegen generate
 
-# Generate and open the app in Xcode
-open: generate
-  open TimberVox.xcodeproj
+build: generate
+    xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug build
 
-check: generate
-  swift format lint --recursive --configuration .swift-format apps/mac/Sources packages/timbervox-core/Sources tools/timbervox-cli/Sources
-  swiftlint lint --quiet
-  cd packages/timbervox-core && swift test --parallel
-  cd tools/timbervox-cli && swift build
-  xcodebuild test -project TimberVox.xcodeproj -scheme "TimberVox" -destination "platform=macOS,arch=arm64" -quiet
-  xcodebuild build -project TimberVox.xcodeproj -scheme "TimberVox" -configuration Release -destination "platform=macOS,arch=arm64" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO -quiet
+check-build: generate
+    xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug -derivedDataPath .build/DerivedData CODE_SIGNING_ALLOWED=NO build
+
+format:
+    swift format --in-place --recursive --configuration .swift-format TimberVox TimberVoxTests
 
 format-check:
-  swift format lint --recursive --configuration .swift-format apps/mac/Sources packages/timbervox-core/Sources tools/timbervox-cli/Sources
+    swift format lint --strict --recursive --configuration .swift-format TimberVox TimberVoxTests
 
 lint:
-  swiftlint lint --quiet
+    swiftlint lint --strict --config .swiftlint.yml
 
-test-core:
-  cd packages/timbervox-core && swift test --parallel
+test: generate
+    xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug -derivedDataPath .build/DerivedData CODE_SIGNING_ALLOWED=NO test
 
-test-app: generate
-  xcodebuild test -project TimberVox.xcodeproj -scheme "TimberVox" -destination "platform=macOS,arch=arm64" -quiet
+# Dual-speech acceptance: needs YOU. After the spoken "start speaking now" cue, say "purple elephant marmalade sandwich" repeatedly until the stop cue (~15s). Speaker volume is lowered automatically so the system phrase only reaches the tap.
+test-dual-speech: generate
+    touch /tmp/timbervox-dual-speech
+    vol=$(osascript -e "output volume of (get volume settings)"); xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug -derivedDataPath .build/DerivedData test -only-testing:TimberVoxTests/DualSpeechLiveAcceptanceTests; status=$?; osascript -e "set volume output volume $vol"; rm -f /tmp/timbervox-dual-speech; exit $status
 
-build-release: generate
-  xcodebuild build -project TimberVox.xcodeproj -scheme "TimberVox" -configuration Release -destination "platform=macOS,arch=arm64" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO -quiet
+# Ten-minute capture endurance: looping tone, bounded memory, capture alive at the end. Takes ~11 minutes.
+test-endurance: generate
+    touch /tmp/timbervox-endurance
+    vol=$(osascript -e "output volume of (get volume settings)"); osascript -e "set volume output volume 8"; xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug -derivedDataPath .build/DerivedData test -only-testing:TimberVoxTests/AudioEnduranceLiveTests; status=$?; osascript -e "set volume output volume $vol"; rm -f /tmp/timbervox-endurance; exit $status
 
-app-store-export output="build/app-store/current": generate
-  swift run --package-path tools/timbervox-cli timbervox-live app-store export "{{output}}"
+# Pause-policy acceptance: QuickTime plays a tone; the Pause policy must silence the captured system audio and restore must resume it. May show a one-time "control QuickTime Player" permission dialog.
+test-pause: generate
+    touch /tmp/timbervox-pause-acceptance
+    vol=$(osascript -e "output volume of (get volume settings)"); osascript -e "set volume output volume 25"; xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug -derivedDataPath .build/DerivedData test -only-testing:TimberVoxTests/PausePolicyLiveTests; status=$?; osascript -e "set volume output volume $vol"; rm -f /tmp/timbervox-pause-acceptance; exit $status
 
-app-store-validate package="build/app-store/current/export/TimberVox.pkg":
-  swift run --package-path tools/timbervox-cli timbervox-live app-store validate "{{package}}"
+# Live acceptance: signed test host, real audio devices, real cloud providers. Artifacts land in /tmp/timbervox-acceptance.
+test-live: generate
+    touch /tmp/timbervox-live-audio-capture /tmp/timbervox-live-provider-acceptance
+    xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug -derivedDataPath .build/DerivedData test -only-testing:TimberVoxTests/AudioCaptureLiveTests -only-testing:TimberVoxTests/PlaybackControlLiveTests -only-testing:TimberVoxTests/DictationProviderLiveAcceptanceTests; status=$?; rm -f /tmp/timbervox-live-audio-capture /tmp/timbervox-live-provider-acceptance; exit $status
 
-app-store-list:
-  swift run --package-path tools/timbervox-cli timbervox-live app-store list-apps
+# Text-transform acceptance: real fixed requests through the deployed Worker. Artifacts land in /tmp/timbervox-acceptance.
+test-transform-live: generate
+    touch /tmp/timbervox-live-transform-acceptance
+    xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug -derivedDataPath .build/DerivedDataTransform test -only-testing:TimberVoxTests/TextTransformProviderLiveAcceptanceTests; status=$?; rm -f /tmp/timbervox-live-transform-acceptance; exit $status
 
-app-store-upload package="build/app-store/current/export/TimberVox.pkg":
-  swift run --package-path tools/timbervox-cli timbervox-live app-store upload "{{package}}"
+# Local-model acceptance: prepares the Hummingbird batch route, verifies cache reuse across a fresh backend, then transcribes a known phrase with network access disabled.
+test-local-model-live: generate
+    touch /tmp/timbervox-live-local-model
+    xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug -derivedDataPath .build/DerivedData test -only-testing:TimberVoxTests/LocalModelLiveAcceptanceTests/testHummingbirdBatchDownloadsPersistsAndTranscribesOffline; status=$?; rm -f /tmp/timbervox-live-local-model; exit $status
 
-app-store-upload-wait package="build/app-store/current/export/TimberVox.pkg":
-  swift run --package-path tools/timbervox-cli timbervox-live app-store upload "{{package}}" --wait
+# Complete paired-package acceptance. This is separate because it also loads the realtime Core ML route and can expose hardware/runtime-specific model failures.
+test-local-package-live: generate
+    touch /tmp/timbervox-live-local-package
+    xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug -derivedDataPath .build/DerivedData test -only-testing:TimberVoxTests/LocalModelLiveAcceptanceTests/testHummingbirdPackageDownloadsAndPersists; status=$?; rm -f /tmp/timbervox-live-local-package; exit $status
 
-appcast +args:
-  swift run --package-path tools/timbervox-cli timbervox-live app-store appcast {{args}}
+# Full local inference matrix. Downloads and runs every distinct batch/realtime asset exposed by the three local packages.
+test-local-matrix-live: generate
+    touch /tmp/timbervox-live-local-matrix
+    xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug -derivedDataPath .build/DerivedData test -only-testing:TimberVoxTests/LocalModelLiveAcceptanceTests/testParakeetV3DownloadsAndTranscribes -only-testing:TimberVoxTests/LocalModelLiveAcceptanceTests/testNemotronEnglish560DownloadsAndTranscribes -only-testing:TimberVoxTests/LocalModelLiveAcceptanceTests/testNemotronEnglish1120DownloadsAndTranscribes -only-testing:TimberVoxTests/LocalModelLiveAcceptanceTests/testNemotronMultilingualLatinDownloadsAndTranscribes -only-testing:TimberVoxTests/LocalModelLiveAcceptanceTests/testNemotronMultilingualFullDownloadsAndTranscribesJapanese; status=$?; rm -f /tmp/timbervox-live-local-matrix; exit $status
 
-tcc-reset target="debug":
-  cd tools/timbervox-cli && swift run timbervox-live tcc-reset --target {{target}}
+# Full offline app workflow: system speech capture, local batch transcription, persistence, and clipboard delivery.
+test-local-workflow-live: generate
+    touch /tmp/timbervox-live-local-workflow
+    xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug -derivedDataPath .build/DerivedData test -only-testing:TimberVoxTests/LocalWorkflowLiveTests/testSystemSpeechRunsThroughOfflineRecordToDeliveryWorkflow; status=$?; rm -f /tmp/timbervox-live-local-workflow; exit $status
 
-tcc-reset-debug:
-  just tcc-reset debug
+# Real local-model failure/endurance paths: silence, long speech, cancellation/restart, and bounded offline preparation failure.
+test-local-endurance-live: generate
+    touch /tmp/timbervox-live-local-endurance
+    xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug -derivedDataPath .build/DerivedData test -only-testing:TimberVoxTests/LocalModelEnduranceLiveTests; status=$?; rm -f /tmp/timbervox-live-local-endurance; exit $status
 
-tcc-reset-release:
-  just tcc-reset release
+# Songbird language acceptance: six shared batch/realtime languages plus Japanese and Chinese realtime-only routes.
+test-songbird-live: generate
+    touch /tmp/timbervox-live-songbird
+    xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug -derivedDataPath .build/DerivedData test -only-testing:TimberVoxTests/SongbirdLiveAcceptanceTests; status=$?; rm -f /tmp/timbervox-live-songbird; exit $status
 
-live +args:
-  cd tools/timbervox-cli && swift run timbervox-live {{args}}
+check: format-check lint test check-build
 
-live-launch target="debug":
-  just live launch --target {{target}}
+run: build
+    open build/Debug/TimberVox.app 2>/dev/null || open "$(xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug -showBuildSettings 2>/dev/null | awk '/ BUILT_PRODUCTS_DIR/{print $3}')/TimberVox.app"
 
-live-quit target="debug":
-  just live quit --target {{target}}
+run-onboarding: build
+    open "$(xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug -showBuildSettings 2>/dev/null | awk '/ BUILT_PRODUCTS_DIR/{print $3}')/TimberVox.app" --args --show-onboarding
 
-live-state target="debug":
-  just live state --target {{target}}
+run-app: build
+    open "$(xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug -showBuildSettings 2>/dev/null | awk '/ BUILT_PRODUCTS_DIR/{print $3}')/TimberVox.app" --args --skip-onboarding
 
-live-open url target="debug":
-  cd tools/timbervox-cli && swift run timbervox-live open-url --target {{target}} "{{url}}"
+run-prototype: build
+    open "$(xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug -showBuildSettings 2>/dev/null | awk '/ BUILT_PRODUCTS_DIR/{print $3}')/TimberVox.app" --args --prototype
 
-live-check-permissions target="debug":
-  just live open-url --target {{target}} timbervox-debug://check-permissions
+open: generate
+    open TimberVox.xcodeproj
 
-live-show-onboarding target="debug":
-  just live open-url --target {{target}} timbervox-debug://show-onboarding
+api-dev:
+    cd TimberVoxAPI && pnpm dev
 
-live-suite suite target="debug":
-  just live suite {{suite}} --target {{target}}
+api-deploy:
+    cd TimberVoxAPI && pnpm exec wrangler deploy

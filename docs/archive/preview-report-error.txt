@@ -1,0 +1,341 @@
+== DATE:
+
+    Friday, July 10, 2026 at 1:55:25 AM Mountain Standard Time
+    
+    2026-07-10T08:55:25Z
+
+
+
+== PREVIEW UPDATE ERROR:
+
+    GroupRecordingError
+    
+    Error encountered during update group #3
+    
+    ==================================
+    
+    |  AppLaunchTimeoutError: Failed to launch app ”TimberVox.app” in reasonable time
+    |  
+    |  The app ”TimberVox.app” did not launch on ”My Mac” in 30 seconds.
+    |  
+    |  bundle identifier: com.chiejimofor.timbervox
+    |  device name: My Mac
+    |  path: /Users/simonpeacocks/Library/Developer/Xcode/DerivedData/TimberVox-clxfcdercxlnorgzikmbaokxnygu/Build/Products/Debug/TimberVox.app
+
+
+
+== PREVIEW UPDATE ERROR:
+
+    GroupRecordingError
+    
+    Error encountered during update group #3
+    
+    ==================================
+    
+    |  AppLaunchTimeoutError: Failed to launch app ”TimberVox.app” in reasonable time
+    |  
+    |  The app ”TimberVox.app” did not launch on ”My Mac” in 30 seconds.
+    |  
+    |  bundle identifier: com.chiejimofor.timbervox
+    |  device name: My Mac
+    |  path: /Users/simonpeacocks/Library/Developer/Xcode/DerivedData/TimberVox-clxfcdercxlnorgzikmbaokxnygu/Build/Products/Debug/TimberVox.app
+
+
+
+== VERSION INFO:
+
+    Tools: 17F113
+    OS:    25F84
+    PID:   79109
+    Model: MacBook Air
+    Arch:  arm64e
+
+
+
+== EXECUTION MODE PROPERTIES:
+
+    Automatically Refresh Previews: true
+    JIT Mode User Enabled: true
+    Falling back to Dynamic Replacement: false
+
+
+
+== PACKAGE RESOLUTION ERRORS:
+
+    
+
+
+
+== REFERENCED SOURCE PACKAGES:
+
+    <IDESwiftPackageCore.IDESwiftPackageDependency:0x80e56de00 path:'/Users/simonpeacocks/Library/Developer/Xcode/DerivedData/TimberVox-clxfcdercxlnorgzikmbaokxnygu/SourcePackages/checkouts/KeyboardShortcuts'>
+    <IDESwiftPackageCore.IDESwiftPackageDependency:0x80e56e700 path:'/Users/simonpeacocks/Library/Developer/Xcode/DerivedData/TimberVox-clxfcdercxlnorgzikmbaokxnygu/SourcePackages/checkouts/purchases-ios'>
+    <IDESwiftPackageCore.IDESwiftPackageDependency:0x80e58cf00 path:'/Users/simonpeacocks/Library/Developer/Xcode/DerivedData/TimberVox-clxfcdercxlnorgzikmbaokxnygu/SourcePackages/checkouts/GRDB.swift'>
+
+
+
+== JIT LINKAGE:
+
+    Run Destination: 00008103-000615881A23001E-macosx26.5-arm64-macos
+    JIT Link Description {
+        9:TimberVox.app [
+            6:GRDB
+            5:GRDB
+            4:KeyboardShortcuts
+            3:KeyboardShortcuts
+            2:RevenueCat
+            1:RevenueCat
+        ]
+    }
+    
+
+
+
+== ENVIRONMENT:
+
+    openFiles = [
+        /Users/simonpeacocks/GitHub/timbervox/TimberVox/Prototype/Modes/ModesVisibleCollectionPrototype.swift
+    ]
+    wantsNewBuildSystem = true
+    newBuildSystemAvailable = true
+    activeScheme = TimberVox
+    activeRunDestination = My Mac variant macos arm64
+    workspaceArena = [x]
+    buildArena = [x]
+    buildableEntries = [
+        TimberVox.app
+    ]
+    runMode = JIT Executor
+
+
+
+== SELECTED RUN DESTINATION:
+
+    macOS 26.5 | macos | arm64 | MacBook Air | no proxy
+
+
+
+== SESSION GROUP 3 (START):
+
+    workspace identifier: workspace:2D02FF78-A724-4C4A-9887-84891230B4ED
+    previewPreflights [
+           Preview Preflight | Registry-ModesVisibleCollectionPrototype.swift#1[preview]: from Editor(1559) for local
+    ]
+    registryPreflights [
+    ]
+    preview providers [
+    ]
+    translation units [
+           /Users/simonpeacocks/GitHub/timbervox/TimberVox/Prototype/Modes/ModesVisibleCollectionPrototype.swift
+    ]
+    Agent Launch Environment {
+        Launch Arguments [
+            -NSDocumentRevisionsDebugMode
+            YES
+        ]
+        Environment Variables {
+            CFLOG_FORCE_DISABLE_STDERR: 1
+            DYLD_FRAMEWORK_PATH: /Users/simonpeacocks/Library/Developer/Xcode/DerivedData/TimberVox-clxfcdercxlnorgzikmbaokxnygu/Build/Products/Debug
+            DYLD_INSERT_LIBRARIES: /Applications/Xcode.app/Contents/Developer/usr/lib/libLogRedirect.dylib
+            DYLD_LIBRARY_PATH: /Users/simonpeacocks/Library/Developer/Xcode/DerivedData/TimberVox-clxfcdercxlnorgzikmbaokxnygu/Build/Products/Debug
+            IDE_DISABLED_OS_ACTIVITY_DT_MODE: 1
+            LOGGER_DEPTH: 6
+            OS_ACTIVITY_TOOLS_OVERSIZE: YES
+            OS_ACTIVITY_TOOLS_PRIVACY: YES
+            OS_LOG_DT_HOOK_MODE: 0x07
+            OS_LOG_DT_HOOK_PREFIX: OSLOG-3E2EFC5B-76B5-4718-8DC7-06B7CD274184
+            OS_LOG_TRANSLATE_PRINT_MODE: 0x80
+            PACKAGE_RESOURCE_BUNDLE_PATH: /Users/simonpeacocks/Library/Developer/Xcode/DerivedData/TimberVox-clxfcdercxlnorgzikmbaokxnygu/Build/Products/Debug
+            PLAYGROUND_LOGGER_FILTER: {"generateQuickLook":true,"captureSourceLineEvents":false,"renderSwiftUIViews":false,"createLogPackets":true,"encodeLogPackets":true,"generateSummaries":true,"excludeViewResults":false,"logAllChildren":false,"captureScopeEvents":false,"excludeImageResults":false}
+            SQLITE_ENABLE_THREAD_ASSERTIONS: 1
+            TERM: dumb
+            XCODE_RUNNING_FOR_PLAYGROUNDS: 1
+            __XCODE_BUILT_PRODUCTS_DIR_PATHS: /Users/simonpeacocks/Library/Developer/Xcode/DerivedData/TimberVox-clxfcdercxlnorgzikmbaokxnygu/Build/Products/Debug
+            __XPC_DYLD_FRAMEWORK_PATH: /Users/simonpeacocks/Library/Developer/Xcode/DerivedData/TimberVox-clxfcdercxlnorgzikmbaokxnygu/Build/Products/Debug
+            __XPC_DYLD_LIBRARY_PATH: /Users/simonpeacocks/Library/Developer/Xcode/DerivedData/TimberVox-clxfcdercxlnorgzikmbaokxnygu/Build/Products/Debug
+        }
+    }
+
+
+
+== SESSION GROUP 2 (START):
+
+    workspace identifier: workspace:2D02FF78-A724-4C4A-9887-84891230B4ED
+    previewPreflights [
+           Preview Preflight | Registry-ModesVisibleCollectionPrototype.swift#1[preview]: from Editor(1559) for local
+    ]
+    registryPreflights [
+    ]
+    preview providers [
+    ]
+    translation units [
+           /Users/simonpeacocks/GitHub/timbervox/TimberVox/Prototype/Modes/ModesVisibleCollectionPrototype.swift
+    ]
+    Agent Launch Environment {
+        Launch Arguments [
+            -NSDocumentRevisionsDebugMode
+            YES
+        ]
+        Environment Variables {
+            CFLOG_FORCE_DISABLE_STDERR: 1
+            DYLD_FRAMEWORK_PATH: /Users/simonpeacocks/Library/Developer/Xcode/DerivedData/TimberVox-clxfcdercxlnorgzikmbaokxnygu/Build/Products/Debug
+            DYLD_INSERT_LIBRARIES: /Applications/Xcode.app/Contents/Developer/usr/lib/libLogRedirect.dylib
+            DYLD_LIBRARY_PATH: /Users/simonpeacocks/Library/Developer/Xcode/DerivedData/TimberVox-clxfcdercxlnorgzikmbaokxnygu/Build/Products/Debug
+            IDE_DISABLED_OS_ACTIVITY_DT_MODE: 1
+            LOGGER_DEPTH: 6
+            OS_ACTIVITY_TOOLS_OVERSIZE: YES
+            OS_ACTIVITY_TOOLS_PRIVACY: YES
+            OS_LOG_DT_HOOK_MODE: 0x07
+            OS_LOG_DT_HOOK_PREFIX: OSLOG-3E2EFC5B-76B5-4718-8DC7-06B7CD274184
+            OS_LOG_TRANSLATE_PRINT_MODE: 0x80
+            PACKAGE_RESOURCE_BUNDLE_PATH: /Users/simonpeacocks/Library/Developer/Xcode/DerivedData/TimberVox-clxfcdercxlnorgzikmbaokxnygu/Build/Products/Debug
+            PLAYGROUND_LOGGER_FILTER: {"generateQuickLook":true,"captureSourceLineEvents":false,"renderSwiftUIViews":false,"createLogPackets":true,"encodeLogPackets":true,"generateSummaries":true,"excludeViewResults":false,"logAllChildren":false,"captureScopeEvents":false,"excludeImageResults":false}
+            SQLITE_ENABLE_THREAD_ASSERTIONS: 1
+            TERM: dumb
+            XCODE_RUNNING_FOR_PLAYGROUNDS: 1
+            __XCODE_BUILT_PRODUCTS_DIR_PATHS: /Users/simonpeacocks/Library/Developer/Xcode/DerivedData/TimberVox-clxfcdercxlnorgzikmbaokxnygu/Build/Products/Debug
+            __XPC_DYLD_FRAMEWORK_PATH: /Users/simonpeacocks/Library/Developer/Xcode/DerivedData/TimberVox-clxfcdercxlnorgzikmbaokxnygu/Build/Products/Debug
+            __XPC_DYLD_LIBRARY_PATH: /Users/simonpeacocks/Library/Developer/Xcode/DerivedData/TimberVox-clxfcdercxlnorgzikmbaokxnygu/Build/Products/Debug
+        }
+    }
+
+
+
+== SESSION GROUP 1 (START):
+
+    workspace identifier: workspace:2D02FF78-A724-4C4A-9887-84891230B4ED
+    previewPreflights [
+           Preview Preflight | Registry-ModesVisibleCollectionPrototype.swift#1[preview]: from Editor(1559) for local
+    ]
+    registryPreflights [
+    ]
+    preview providers [
+    ]
+    translation units [
+           /Users/simonpeacocks/GitHub/timbervox/TimberVox/Prototype/Modes/ModesVisibleCollectionPrototype.swift
+    ]
+    build graph {
+        TimberVox.app (#9)
+           RevenueCat (#2)
+              RevenueCat (#1)
+           KeyboardShortcuts (#4)
+              KeyboardShortcuts (#3)
+           GRDB (#6)
+              GRDB (#5)
+           sourceFile(file:///Users/simonpeacocks/GitHub/timbervox/TimberVox/Prototype/Modes/ModesVisibleCollectionPrototype.swift -> ModesVisibleCollectionPrototype.swift) (#7)
+           ModesVisibleCollectionPrototype.swift (#8)
+    }
+    update plan {
+        macOS [arm64 macosx26.5 macos] (MacBook Air, 00008103-000615881A23001E-macosx26.5-arm64-macos), [], thinning enabled, thunking enabled) {
+            Destination: My Mac dvtdevice-local-computer:localhost | default device for macos [
+                TimberVox app - Previews {
+                    execution point packs [
+                        (ModesVisibleCollectionPrototype.swift, Previews) (in TimberVox)
+                    ]
+                    translation units [
+                        ModesVisibleCollectionPrototype.swift (in TimberVox.app)
+                    ]
+                    modules [
+                        GRDB
+                        GRDB
+                        KeyboardShortcuts
+                        KeyboardShortcuts
+                        RevenueCat
+                        RevenueCat
+                        TimberVox.app
+                    ]
+                    jit link description [
+                        TimberVox.app {
+                            merged static libs [
+                                GRDB
+                                GRDB
+                                KeyboardShortcuts
+                                KeyboardShortcuts
+                                RevenueCat
+                                RevenueCat
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+    Agent Launch Environment {
+        Launch Arguments [
+            -NSDocumentRevisionsDebugMode
+            YES
+        ]
+        Environment Variables {
+            CFLOG_FORCE_DISABLE_STDERR: 1
+            DYLD_FRAMEWORK_PATH: /Users/simonpeacocks/Library/Developer/Xcode/DerivedData/TimberVox-clxfcdercxlnorgzikmbaokxnygu/Build/Products/Debug
+            DYLD_INSERT_LIBRARIES: /Applications/Xcode.app/Contents/Developer/usr/lib/libLogRedirect.dylib
+            DYLD_LIBRARY_PATH: /Users/simonpeacocks/Library/Developer/Xcode/DerivedData/TimberVox-clxfcdercxlnorgzikmbaokxnygu/Build/Products/Debug
+            IDE_DISABLED_OS_ACTIVITY_DT_MODE: 1
+            LOGGER_DEPTH: 6
+            OS_ACTIVITY_TOOLS_OVERSIZE: YES
+            OS_ACTIVITY_TOOLS_PRIVACY: YES
+            OS_LOG_DT_HOOK_MODE: 0x07
+            OS_LOG_DT_HOOK_PREFIX: OSLOG-3E2EFC5B-76B5-4718-8DC7-06B7CD274184
+            OS_LOG_TRANSLATE_PRINT_MODE: 0x80
+            PACKAGE_RESOURCE_BUNDLE_PATH: /Users/simonpeacocks/Library/Developer/Xcode/DerivedData/TimberVox-clxfcdercxlnorgzikmbaokxnygu/Build/Products/Debug
+            PLAYGROUND_LOGGER_FILTER: {"generateQuickLook":true,"captureSourceLineEvents":false,"renderSwiftUIViews":false,"createLogPackets":true,"encodeLogPackets":true,"generateSummaries":true,"excludeViewResults":false,"logAllChildren":false,"captureScopeEvents":false,"excludeImageResults":false}
+            SQLITE_ENABLE_THREAD_ASSERTIONS: 1
+            TERM: dumb
+            XCODE_RUNNING_FOR_PLAYGROUNDS: 1
+            __XCODE_BUILT_PRODUCTS_DIR_PATHS: /Users/simonpeacocks/Library/Developer/Xcode/DerivedData/TimberVox-clxfcdercxlnorgzikmbaokxnygu/Build/Products/Debug
+            __XPC_DYLD_FRAMEWORK_PATH: /Users/simonpeacocks/Library/Developer/Xcode/DerivedData/TimberVox-clxfcdercxlnorgzikmbaokxnygu/Build/Products/Debug
+            __XPC_DYLD_LIBRARY_PATH: /Users/simonpeacocks/Library/Developer/Xcode/DerivedData/TimberVox-clxfcdercxlnorgzikmbaokxnygu/Build/Products/Debug
+        }
+    }
+
+
+
+== POWER STATE LOGS:
+
+    7/10/2026, 1:48 AM Received power source state: Battery Powered (lowPowerMode: false, status: unplugged, level: 78%)
+    7/10/2026, 1:48 AM Broadcasting device power state: Mid Power
+    7/10/2026, 1:48 AM No device power state user override user default value.Current power state: Mid Power
+
+
+
+== DISPLAYABLE CONTENT STATE:
+
+    updateIdentifier: 1772
+    buildingState: Running
+    isUpdateInProgress: false
+    providers [
+        Registry[Registry-ModesVisibleCollectionPrototype.swift#1[preview] (line 353)] {
+            status: Failed: GroupRecordingError
+            
+            Error encountered during update group #3
+            
+            ==================================
+            
+            |  AppLaunchTimeoutError: Failed to launch app ”TimberVox.app” in reasonable time
+            |  
+            |  The app ”TimberVox.app” did not launch on ”My Mac” in 30 seconds.
+            |  
+            |  bundle identifier: com.chiejimofor.timbervox
+            |  device name: My Mac
+            |  path: /Users/simonpeacocks/Library/Developer/Xcode/DerivedData/TimberVox-clxfcdercxlnorgzikmbaokxnygu/Build/Products/Debug/TimberVox.app
+        }
+    ]
+    registries [
+        Registry-ModesVisibleCollectionPrototype.swift#1[preview] {
+            status: Failed: GroupRecordingError
+            
+            Error encountered during update group #3
+            
+            ==================================
+            
+            |  AppLaunchTimeoutError: Failed to launch app ”TimberVox.app” in reasonable time
+            |  
+            |  The app ”TimberVox.app” did not launch on ”My Mac” in 30 seconds.
+            |  
+            |  bundle identifier: com.chiejimofor.timbervox
+            |  device name: My Mac
+            |  path: /Users/simonpeacocks/Library/Developer/Xcode/DerivedData/TimberVox-clxfcdercxlnorgzikmbaokxnygu/Build/Products/Debug/TimberVox.app
+        }
+    ]
+
+

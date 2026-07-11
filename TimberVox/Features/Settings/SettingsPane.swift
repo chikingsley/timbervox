@@ -34,6 +34,8 @@ struct SettingsPane: View {
   @AppStorage(ClipboardPreference.keepTranscriptOnClipboardAfterPasteKey)
   private var keepTranscriptOnClipboardAfterPaste = ClipboardPreference
     .defaultKeepTranscriptOnClipboardAfterPaste
+  @AppStorage(LocalModelRetentionPreference.key)
+  private var localModelRetentionMinutes = LocalModelRetentionPreference.defaultMinutes
 
   @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
   @ObserveInjection var injection
@@ -87,6 +89,20 @@ struct SettingsPane: View {
           }
         }
         .pickerStyle(.segmented)
+      }
+
+      Section {
+        Picker("Unload last-used model after", selection: $localModelRetentionMinutes) {
+          ForEach(LocalModelRetentionOption.allCases) { option in
+            Text(option.label).tag(option.rawValue)
+          }
+        }
+      } header: {
+        Text("Local models")
+      } footer: {
+        Text(
+          "TimberVox keeps only the most recently requested local batch or realtime model in memory."
+        )
       }
 
       Section("Application") {
@@ -205,6 +221,12 @@ struct SettingsPane: View {
     .onAppear {
       permissions.refresh()
       launchAtLogin = SMAppService.mainApp.status == .enabled
+    }
+    .onChange(of: localModelRetentionMinutes) { _, _ in
+      Task {
+        await LocalBatchTranscriptionClient.shared.retentionPreferenceDidChange()
+        await LocalRealtimeTranscriptionSession.shared.retentionPreferenceDidChange()
+      }
     }
     .enableInjection()
   }
