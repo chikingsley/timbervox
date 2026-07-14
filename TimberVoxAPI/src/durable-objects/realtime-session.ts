@@ -1,14 +1,17 @@
+import {
+  experimental_streamTranscribe,
+  type StreamTranscriptionResult,
+  type TranscriptionStreamPart,
+} from "ai";
 import { z } from "zod";
 
 import type { DeepgramRealtimeOptions } from "../ai/deepgram/realtime/client";
 import type { RealtimeAsrProviderId } from "../ai/models/types";
-import {
-  createRealtimeProviderBridge,
-  type RealtimeProviderBridge,
-} from "../ai/realtime/bridge";
+import { createRealtimeTranscriptionModel } from "../ai/realtime/model";
 import {
   finalRealtimeTranscript,
   type RealtimeTranscriptEvent,
+  realtimeTranscriptEventFromStreamPart,
 } from "../ai/realtime/normalize";
 import {
   type RealtimeSessionTerminalEvent,
@@ -118,22 +121,20 @@ const closeSocket = (socket: WebSocket, code: number, reason: string): void => {
   }
 };
 
-const PROVIDER_FLUSH_TIMEOUT_MS = 3000;
-
 export class RealtimeSession {
+  private audioInputWriter: WritableStreamDefaultWriter<
+    string | Uint8Array
+  > | null = null;
   private audioBytes = 0;
   private readonly env: Env;
   private eventSequence = 0;
   private messageCount = 0;
-  private providerBridge: RealtimeProviderBridge | null = null;
-  private providerSocket: WebSocket | null = null;
-  private providerSocketPromise: Promise<WebSocket> | null = null;
-  private providerClosed = false;
-  private providerClosedWaiters: Array<() => void> = [];
-  private providerError: string | null = null;
-  private providerMessageQueue: Promise<void> = Promise.resolve();
   private readonly state: DurableObjectState;
   private startedAt: string | null = null;
+  private streamAbortController: AbortController | null = null;
+  private streamConsumptionPromise: Promise<void> | null = null;
+  private streamError: string | null = null;
+  private streamResult: StreamTranscriptionResult | null = null;
   private terminalEventPromise: Promise<RealtimeSessionTerminalEvent> | null =
     null;
   private readonly transcriptEvents: RealtimeTranscriptEvent[] = [];
@@ -174,28 +175,44 @@ export class RealtimeSession {
       )
     );
 
-    this.providerSocketPromise = this.connectProvider(server, config);
-    this.state.waitUntil(this.providerSocketPromise.catch(() => undefined));
+    const audioInput = new TransformStream<
+      string | Uint8Array,
+      string | Uint8Array
+    >();
+    this.audioInputWriter = audioInput.writable.getWriter();
+    this.streamAbortController = new AbortController();
+    const model = createRealtimeTranscriptionModel(this.env, {
+      deepgram: config.deepgram,
+      encoding: config.encoding,
+      language: config.language,
+      modelId: config.model,
+      provider: config.provider,
+      sampleRate: config.sampleRate,
+      targetStreamingDelayMs: config.targetStreamingDelayMs,
+      upstreamModel: config.upstreamModel,
+    });
+    this.streamResult = experimental_streamTranscribe({
+      abortSignal: this.streamAbortController.signal,
+      audio: audioInput.readable,
+      inputAudioFormat: {
+        ...(config.sampleRate ? { rate: config.sampleRate } : {}),
+        type: inputAudioType(config.encoding),
+      },
+      model,
+    });
+    this.streamConsumptionPromise = this.consumeTranscriptionStream(
+      server,
+      config,
+      this.streamResult
+    );
+    this.state.waitUntil(this.streamConsumptionPromise);
 
     server.addEventListener("message", (event) => {
       this.state.waitUntil(this.handleMessage(server, event, config));
     });
 
     server.addEventListener("close", () => {
-      this.closeProvider();
-      this.state.waitUntil(
-        Promise.all([
-          this.state.storage.put("session", {
-            audioBytes: this.audioBytes,
-            config,
-            endedAt: new Date().toISOString(),
-            messageCount: this.messageCount,
-          }),
-          this.providerMessageQueue.then(() =>
-            this.deliverTerminalSession(server, config, "succeeded")
-          ),
-        ])
-      );
+      this.state.waitUntil(this.completeDisconnectedSession(server, config));
     });
 
     return new Response(null, { status: 101, webSocket: client });
@@ -223,9 +240,11 @@ export class RealtimeSession {
     const audio = await audioBytes(data);
     const size = audio.byteLength;
     this.audioBytes += size;
-    await this.withProviderSocket((providerSocket) => {
-      this.requiredProviderBridge().sendAudio(providerSocket, audio);
-    });
+    const writer = this.audioInputWriter;
+    if (!writer) {
+      throw new Error("realtime audio input is closed");
+    }
+    await writer.write(audio);
     socket.send(
       json({
         audio_bytes: this.audioBytes,
@@ -263,16 +282,8 @@ export class RealtimeSession {
       "type" in message &&
       message.type === "close"
     ) {
-      try {
-        await this.withProviderSocket((providerSocket) => {
-          this.requiredProviderBridge().closeStream(providerSocket);
-        });
-        await this.waitForProviderClose(PROVIDER_FLUSH_TIMEOUT_MS);
-      } catch {
-        // No provider socket to flush; end the session directly.
-      }
-      await this.providerMessageQueue;
-      await this.deliverTerminalSession(socket, config, "succeeded");
+      await this.finishAudioInput();
+      await this.streamConsumptionPromise;
       closeSocket(socket, 1000, "client requested close");
       return;
     }
@@ -293,25 +304,6 @@ export class RealtimeSession {
       return;
     }
 
-    let forwarded = false;
-    await this.withProviderSocket((providerSocket) => {
-      forwarded = this.requiredProviderBridge().forwardClientMessage(
-        providerSocket,
-        message
-      );
-    });
-    if (forwarded) {
-      socket.send(
-        json({
-          message_count: this.messageCount,
-          provider: config.provider,
-          session_id: config.sessionId,
-          type: "event.forwarded",
-        })
-      );
-      return;
-    }
-
     socket.send(
       json({
         message,
@@ -322,188 +314,89 @@ export class RealtimeSession {
     );
   }
 
-  private async connectProvider(
+  private async consumeTranscriptionStream(
+    socket: WebSocket,
+    config: RealtimeSessionConfig,
+    result: StreamTranscriptionResult
+  ): Promise<void> {
+    try {
+      for await (const part of result.fullStream) {
+        this.handleTranscriptionStreamPart(socket, config, part);
+      }
+      await result.text;
+      await this.deliverTerminalSession(socket, config, "succeeded");
+      closeSocket(socket, 1000, "realtime session completed");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.streamError = message;
+      await this.deliverTerminalSession(socket, config, "failed", message);
+      closeSocket(socket, 1011, "realtime session failed");
+    }
+  }
+
+  private handleTranscriptionStreamPart(
+    socket: WebSocket,
+    config: RealtimeSessionConfig,
+    part: TranscriptionStreamPart
+  ): void {
+    if (part.type === "error") {
+      throw part.error;
+    }
+    const event = realtimeTranscriptEventFromStreamPart(part);
+    if (!event) {
+      return;
+    }
+    this.transcriptEvents.push(event);
+    const protocolEvent = transcriptProtocolEvent(
+      config.sessionId,
+      this.nextSequence(),
+      event
+    );
+    if (protocolEvent) {
+      safeSend(socket, json(protocolEvent));
+    }
+  }
+
+  private async finishAudioInput(): Promise<void> {
+    const writer = this.audioInputWriter;
+    this.audioInputWriter = null;
+    if (!writer) {
+      return;
+    }
+    try {
+      await writer.close();
+    } catch {
+      // The stream already failed or was aborted.
+    } finally {
+      writer.releaseLock();
+    }
+  }
+
+  private async completeDisconnectedSession(
     socket: WebSocket,
     config: RealtimeSessionConfig
-  ): Promise<WebSocket> {
-    try {
-      const bridge = createRealtimeProviderBridge(this.env, config);
-      this.providerBridge = bridge;
-      const providerSocket = await bridge.connect();
-      this.providerSocket = providerSocket;
-      this.attachProviderSocket(socket, providerSocket, config, bridge);
-      return providerSocket;
-    } catch (error) {
+  ): Promise<void> {
+    await this.state.storage.put("session", {
+      audioBytes: this.audioBytes,
+      config,
+      endedAt: new Date().toISOString(),
+      messageCount: this.messageCount,
+    });
+    await this.finishAudioInput();
+    await this.streamConsumptionPromise;
+    if (!this.terminalEventPromise) {
       await this.deliverTerminalSession(
         socket,
         config,
-        "failed",
-        error instanceof Error ? error.message : String(error)
+        this.streamError ? "failed" : "succeeded",
+        this.streamError ?? undefined
       );
-      closeSocket(socket, 1011, "provider connection failed");
-      throw error;
     }
-  }
-
-  private attachProviderSocket(
-    clientSocket: WebSocket,
-    providerSocket: WebSocket,
-    config: RealtimeSessionConfig,
-    bridge: RealtimeProviderBridge
-  ): void {
-    providerSocket.addEventListener("message", (event) => {
-      this.providerMessageQueue = this.providerMessageQueue
-        .then(() =>
-          this.forwardProviderMessage(clientSocket, event, config, bridge)
-        )
-        .catch(async (error: unknown) => {
-          const message =
-            error instanceof Error ? error.message : String(error);
-          this.providerError = message;
-          await this.deliverTerminalSession(
-            clientSocket,
-            config,
-            "failed",
-            message
-          );
-          closeSocket(clientSocket, 1011, "realtime session failed");
-        });
-      this.state.waitUntil(this.providerMessageQueue);
-    });
-    providerSocket.addEventListener("close", () => {
-      this.resolveProviderClosed();
-      this.state.waitUntil(
-        this.providerMessageQueue
-          .then(() =>
-            this.deliverTerminalSession(
-              clientSocket,
-              config,
-              this.providerError ? "failed" : "succeeded",
-              this.providerError ?? undefined
-            )
-          )
-          .then(() =>
-            closeSocket(clientSocket, 1000, "realtime session completed")
-          )
-      );
-    });
-    providerSocket.addEventListener("error", () => {
-      this.resolveProviderClosed();
-      this.providerError = "provider error";
-      this.state.waitUntil(
-        this.providerMessageQueue
-          .then(() =>
-            this.deliverTerminalSession(
-              clientSocket,
-              config,
-              "failed",
-              "provider error"
-            )
-          )
-          .then(() => closeSocket(clientSocket, 1011, "provider error"))
-      );
-    });
-  }
-
-  private resolveProviderClosed(): void {
-    this.providerClosed = true;
-    const waiters = this.providerClosedWaiters;
-    this.providerClosedWaiters = [];
-    for (const waiter of waiters) {
-      waiter();
-    }
-  }
-
-  private hasProviderClosed(): boolean {
-    return this.providerClosed;
-  }
-
-  private waitForProviderClose(timeoutMs: number): Promise<void> {
-    if (this.hasProviderClosed()) {
-      return Promise.resolve();
-    }
-    return new Promise((resolve) => {
-      const timer = setTimeout(() => {
-        resolve();
-      }, timeoutMs);
-      this.providerClosedWaiters.push(() => {
-        clearTimeout(timer);
-        resolve();
-      });
-    });
-  }
-
-  private async forwardProviderMessage(
-    clientSocket: WebSocket,
-    event: MessageEvent,
-    config: RealtimeSessionConfig,
-    bridge: RealtimeProviderBridge
-  ): Promise<void> {
-    const data = await messageDataToString(event.data);
-    const parsed = bridge.parseMessage(data);
-    if (parsed.shouldPersistProviderEvent && parsed.providerEvent) {
-      await this.state.storage.put("transcription", parsed.providerEvent);
-    }
-    if (parsed.transcriptEvent) {
-      this.transcriptEvents.push(parsed.transcriptEvent);
-      const protocolEvent =
-        parsed.transcriptEvent.delivery === "complete"
-          ? null
-          : transcriptProtocolEvent(
-              config.sessionId,
-              this.nextSequence(),
-              parsed.transcriptEvent
-            );
-      if (protocolEvent) {
-        safeSend(clientSocket, json(protocolEvent));
-      }
-      if (parsed.transcriptEvent.delivery === "complete") {
-        await this.deliverTerminalSession(clientSocket, config, "succeeded");
-        closeSocket(clientSocket, 1000, "realtime session completed");
-      }
-    }
-    if (parsed.providerError) {
-      this.providerError = parsed.providerError;
-      await this.deliverTerminalSession(
-        clientSocket,
-        config,
-        "failed",
-        parsed.providerError
-      );
-      closeSocket(clientSocket, 1011, "provider error");
-    }
-  }
-
-  private async withProviderSocket(
-    action: (providerSocket: WebSocket) => void
-  ): Promise<void> {
-    const providerSocket = await this.providerSocketPromise;
-    if (!providerSocket) {
-      throw new Error("provider socket is not connected");
-    }
-    action(providerSocket);
-  }
-
-  private requiredProviderBridge(): RealtimeProviderBridge {
-    if (!this.providerBridge) {
-      throw new Error("provider bridge is not connected");
-    }
-    return this.providerBridge;
-  }
-
-  private currentProviderSocket(): WebSocket | null {
-    return this.providerSocket;
-  }
-
-  private closeProvider(): void {
-    const bridge = this.providerBridge;
-    const providerSocket = this.currentProviderSocket();
-    this.providerSocket = null;
-    this.providerBridge = null;
-    if (providerSocket && bridge) {
-      bridge.close(providerSocket);
-      closeSocket(providerSocket, 1000, "client disconnected");
-    }
+    this.streamAbortController?.abort(
+      new Error("TimberVox realtime client disconnected")
+    );
+    this.streamAbortController = null;
+    this.streamResult = null;
   }
 
   private nextSequence(): number {
@@ -627,20 +520,12 @@ const safeSend = (socket: WebSocket, data: string): boolean => {
   }
 };
 
-const messageDataToString = async (data: unknown): Promise<string> => {
-  if (typeof data === "string") {
-    return data;
+const inputAudioType = (encoding: string | null): string => {
+  if (encoding === "mulaw" || encoding === "pcm_mulaw") {
+    return "audio/pcmu";
   }
-  if (data instanceof ArrayBuffer) {
-    return new TextDecoder().decode(data);
+  if (encoding === "alaw" || encoding === "pcm_alaw") {
+    return "audio/pcma";
   }
-  if (data instanceof Blob) {
-    return await data.text();
-  }
-  if (ArrayBuffer.isView(data)) {
-    return new TextDecoder().decode(
-      new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
-    );
-  }
-  return JSON.stringify(data);
+  return "audio/pcm";
 };

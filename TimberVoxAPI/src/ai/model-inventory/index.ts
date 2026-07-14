@@ -11,7 +11,14 @@ export const getProviderInventory = async (
 ): Promise<ProviderInventoryReport> => {
   const sources = await Promise.all(
     providerInventoryAdapters.map((adapter) =>
-      adapter.list({ env, fetch: fetchImpl, now })
+      adapter.list({
+        env,
+        // Wrap instead of passing fetchImpl directly: calling it as
+        // context.fetch(...) rebinds `this` and workerd rejects that
+        // with "Illegal invocation".
+        fetch: (input, init) => fetchImpl(input, init),
+        now,
+      })
     )
   );
   const catalog = publicModelCatalog();

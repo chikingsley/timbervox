@@ -129,9 +129,10 @@ require or inspect that directory.
   It owns the public WebSocket, auth, persistence, recovery, and accounting; it
   feeds client audio into a `ReadableStream` and maps AI SDK transcript parts to
   the TimberVox client protocol.
-- The current direct-provider bridge is transitional and should be removed when
-  the Deepgram and Mistral `doStream` adapters replace it. Provider-specific
-  control messages must not leak through the public TimberVox protocol.
+- Direct Deepgram and Mistral realtime connections now sit beneath
+  `TranscriptionModelV4.doStream`. The Durable Object invokes them through AI
+  SDK `experimental_streamTranscribe`; provider-specific control messages do
+  not pass through the public TimberVox protocol.
 - AI SDK `RealtimeModelV4` is not this contract. It represents bidirectional
   voice-agent sessions with output audio, conversation items, and tool calls;
   TimberVox's realtime surface is streaming speech-to-text.

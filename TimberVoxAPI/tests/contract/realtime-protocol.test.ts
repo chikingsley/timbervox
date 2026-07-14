@@ -5,6 +5,7 @@ import { parseMistralRealtimeEvent } from "../../src/ai/mistral/realtime/events"
 import {
   normalizeDeepgramTranscriptEvent,
   normalizeMistralTranscriptEvent,
+  realtimeTranscriptEventFromStreamPart,
 } from "../../src/ai/realtime/normalize";
 import {
   terminalSessionEvent,
@@ -149,5 +150,51 @@ describe("provider-neutral realtime protocol", () => {
     expect(deepgram.type).toBe("session.completed");
     expect(mistral.type).toBe("session.completed");
     expect(Object.keys(deepgram).sort()).toEqual(Object.keys(mistral).sort());
+  });
+
+  it("maps the AI SDK transcription stream into the TimberVox protocol", () => {
+    const streamEvent = realtimeTranscriptEventFromStreamPart({
+      endSecond: 1.2,
+      providerMetadata: {
+        timbervox: {
+          segments: [
+            {
+              endSeconds: 1.2,
+              startSeconds: 0.8,
+              text: "Safety meeting complete.",
+            },
+          ],
+          speakerTurns: [],
+          words: [
+            {
+              confidence: 0.99,
+              endSeconds: 1.2,
+              speaker: 0,
+              startSeconds: 0.8,
+              text: "Safety",
+            },
+          ],
+        },
+      },
+      startSecond: 0.8,
+      text: "Safety meeting complete.",
+      type: "transcript-final",
+    });
+    const protocolEvent = transcriptProtocolEvent(
+      "rt_contract",
+      2,
+      required(streamEvent)
+    );
+
+    expect(required(protocolEvent).type).toBe("transcript.committed");
+    expect(required(protocolEvent).words).toEqual([
+      {
+        confidence: 0.99,
+        endSeconds: 1.2,
+        speaker: 0,
+        startSeconds: 0.8,
+        text: "Safety",
+      },
+    ]);
   });
 });

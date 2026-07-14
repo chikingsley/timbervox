@@ -5,7 +5,6 @@ import {
   sendDeepgramAudio,
   sendDeepgramCloseStream,
   sendDeepgramFinalize,
-  sendDeepgramKeepAlive,
 } from "../deepgram/realtime/client";
 import { parseDeepgramRealtimeEvent } from "../deepgram/realtime/events";
 import {
@@ -23,7 +22,7 @@ import {
   type RealtimeTranscriptEvent,
 } from "./normalize";
 
-export interface RealtimeProviderConfig {
+export interface RealtimeProviderConnectionConfig {
   deepgram: DeepgramRealtimeOptions;
   encoding: string | null;
   provider: RealtimeAsrProviderId;
@@ -32,59 +31,43 @@ export interface RealtimeProviderConfig {
   upstreamModel: string;
 }
 
-interface ParsedRealtimeProviderMessage {
+export interface ParsedRealtimeProviderMessage {
   providerError?: string;
   providerEvent?: unknown;
-  shouldPersistProviderEvent: boolean;
   transcriptEvent?: RealtimeTranscriptEvent;
 }
 
-export interface RealtimeProviderBridge {
+export interface RealtimeProviderConnection {
   close: (socket: WebSocket) => void;
-  closeStream: (socket: WebSocket) => void;
   connect: () => Promise<WebSocket>;
-  forwardClientMessage: (socket: WebSocket, message: unknown) => boolean;
+  finish: (socket: WebSocket) => void;
   parseMessage: (data: string) => ParsedRealtimeProviderMessage;
   provider: RealtimeAsrProviderId;
   sendAudio: (socket: WebSocket, audio: Uint8Array) => void;
 }
 
-export const createRealtimeProviderBridge = (
+export const createRealtimeProviderConnection = (
   env: Env,
-  config: RealtimeProviderConfig
-): RealtimeProviderBridge =>
+  config: RealtimeProviderConnectionConfig
+): RealtimeProviderConnection =>
   config.provider === "deepgram"
-    ? deepgramBridge(env, config)
-    : mistralBridge(env, config);
+    ? deepgramConnection(env, config)
+    : mistralConnection(env, config);
 
-const deepgramBridge = (
+const deepgramConnection = (
   env: Env,
-  config: RealtimeProviderConfig
-): RealtimeProviderBridge => ({
+  config: RealtimeProviderConnectionConfig
+): RealtimeProviderConnection => ({
   close: sendDeepgramCloseStream,
-  closeStream: (socket) => {
-    sendDeepgramFinalize(socket);
-    sendDeepgramCloseStream(socket);
-  },
   connect: () =>
     connectDeepgramRealtime({
       apiKey: env.DEEPGRAM_API_KEY,
       model: config.upstreamModel,
       options: config.deepgram,
     }),
-  forwardClientMessage: (socket, message) => {
-    const type = deepgramControlType(message);
-    if (!type) {
-      return false;
-    }
-    if (type === "close") {
-      sendDeepgramCloseStream(socket);
-    } else if (type === "finalize") {
-      sendDeepgramFinalize(socket);
-    } else {
-      sendDeepgramKeepAlive(socket);
-    }
-    return true;
+  finish: (socket) => {
+    sendDeepgramFinalize(socket);
+    sendDeepgramCloseStream(socket);
   },
   parseMessage: (data) => {
     const providerEvent = parseDeepgramRealtimeEvent(data);
@@ -97,7 +80,6 @@ const deepgramBridge = (
           ? describeProviderError(providerEvent)
           : undefined,
       providerEvent,
-      shouldPersistProviderEvent: providerEvent?.type === "Results",
       transcriptEvent,
     };
   },
@@ -105,15 +87,11 @@ const deepgramBridge = (
   sendAudio: sendDeepgramAudio,
 });
 
-const mistralBridge = (
+const mistralConnection = (
   env: Env,
-  config: RealtimeProviderConfig
-): RealtimeProviderBridge => ({
+  config: RealtimeProviderConnectionConfig
+): RealtimeProviderConnection => ({
   close: sendMistralInputAudioEnd,
-  closeStream: (socket) => {
-    sendMistralInputAudioFlush(socket);
-    sendMistralInputAudioEnd(socket);
-  },
   connect: () =>
     connectMistralRealtime({
       apiKey: env.MISTRAL_API_KEY,
@@ -128,12 +106,9 @@ const mistralBridge = (
         targetStreamingDelayMs: config.targetStreamingDelayMs ?? undefined,
       },
     }),
-  forwardClientMessage: (socket, message) => {
-    if (!isMistralClientMessage(message)) {
-      return false;
-    }
-    socket.send(JSON.stringify(message));
-    return true;
+  finish: (socket) => {
+    sendMistralInputAudioFlush(socket);
+    sendMistralInputAudioEnd(socket);
   },
   parseMessage: (data) => {
     const providerEvent = parseMistralRealtimeEvent(data);
@@ -146,44 +121,12 @@ const mistralBridge = (
           ? describeProviderError(providerEvent.error)
           : undefined,
       providerEvent,
-      shouldPersistProviderEvent: providerEvent?.type === "transcription.done",
       transcriptEvent,
     };
   },
   provider: "mistral",
   sendAudio: sendMistralInputAudioAppend,
 });
-
-type DeepgramControlType = "close" | "finalize" | "keepAlive";
-
-const deepgramControlType = (message: unknown): DeepgramControlType | null => {
-  if (typeof message !== "object" || message === null || !("type" in message)) {
-    return null;
-  }
-  if (message.type === "CloseStream" || message.type === "close_stream") {
-    return "close";
-  }
-  if (message.type === "Finalize" || message.type === "finalize") {
-    return "finalize";
-  }
-  if (message.type === "KeepAlive" || message.type === "keep_alive") {
-    return "keepAlive";
-  }
-  return null;
-};
-
-const isMistralClientMessage = (value: unknown): value is { type: string } => {
-  if (typeof value !== "object" || value === null || !("type" in value)) {
-    return false;
-  }
-  const { type } = value;
-  return (
-    type === "input_audio.append" ||
-    type === "input_audio.flush" ||
-    type === "input_audio.end" ||
-    type === "session.update"
-  );
-};
 
 const describeProviderError = (value: unknown): string => {
   if (typeof value === "string") {

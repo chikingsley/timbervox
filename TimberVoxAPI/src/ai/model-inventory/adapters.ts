@@ -35,14 +35,24 @@ const arrayField = (record: Record<string, unknown>, key: string): unknown[] =>
 const uniqueModels = (
   models: readonly ProviderInventoryModel[]
 ): readonly ProviderInventoryModel[] => {
-  const seen = new Set<string>();
-  return models.filter((model) => {
-    if (seen.has(model.upstreamModel)) {
-      return false;
+  // Providers can list the same model several times (e.g. Deepgram has
+  // separate batch and streaming entries per name); merge transports
+  // instead of dropping the duplicates.
+  const byUpstreamModel = new Map<string, ProviderInventoryModel>();
+  for (const model of models) {
+    const existing = byUpstreamModel.get(model.upstreamModel);
+    if (!existing) {
+      byUpstreamModel.set(model.upstreamModel, model);
+      continue;
     }
-    seen.add(model.upstreamModel);
-    return true;
-  });
+    if (model.transports?.length) {
+      const transports = [
+        ...new Set([...(existing.transports ?? []), ...model.transports]),
+      ];
+      byUpstreamModel.set(model.upstreamModel, { ...existing, transports });
+    }
+  }
+  return [...byUpstreamModel.values()];
 };
 
 const source =
@@ -170,7 +180,12 @@ const normalizeGeminiModels: ModelNormalizer = (body) => {
     if (!isRecord(item)) {
       return [];
     }
-    const supportedActions = arrayField(item, "supportedActions");
+    // The live v1beta ListModels response calls this field
+    // supportedGenerationMethods; older docs used supportedActions.
+    const supportedActions = [
+      ...arrayField(item, "supportedGenerationMethods"),
+      ...arrayField(item, "supportedActions"),
+    ];
     if (!supportedActions.includes("generateContent")) {
       return [];
     }
@@ -208,14 +223,25 @@ const normalizeDeepgramModels: ModelNormalizer = (body) => {
     if (item.streaming === true) {
       transports.push("realtime");
     }
-    return [
-      {
-        displayName: stringField(item, "name"),
-        kind: "transcription" as const,
-        transports,
-        upstreamModel,
-      },
-    ];
+    const entry = {
+      displayName: stringField(item, "name"),
+      kind: "transcription" as const,
+      transports,
+      upstreamModel,
+    };
+    // Deepgram's transcribe API accepts family aliases like "nova-2"
+    // (resolving to the "-general" variant), but /v1/models only lists
+    // the fully-qualified names.
+    if (upstreamModel.endsWith("-general")) {
+      return [
+        entry,
+        {
+          ...entry,
+          upstreamModel: upstreamModel.slice(0, -"-general".length),
+        },
+      ];
+    }
+    return [entry];
   });
 };
 

@@ -1,3 +1,5 @@
+import type { TranscriptionStreamPart } from "ai";
+
 import type { DeepgramRealtimeEvent } from "../deepgram/realtime/events";
 import type { MistralRealtimeEvent } from "../mistral/realtime/events";
 import type { RealtimeAsrProviderId } from "../models/types";
@@ -19,6 +21,123 @@ export interface RealtimeTranscriptEvent {
   type: "transcript";
   words: TranscriptWord[];
 }
+
+export const realtimeTranscriptEventFromStreamPart = (
+  part: TranscriptionStreamPart
+): RealtimeTranscriptEvent | null => {
+  if (
+    part.type === "error" ||
+    part.type === "raw" ||
+    (part.type !== "transcript-delta" &&
+      part.type !== "transcript-partial" &&
+      part.type !== "transcript-final")
+  ) {
+    return null;
+  }
+  const metadata = timbervoxMetadata(part.providerMetadata?.timbervox);
+  const text = part.type === "transcript-delta" ? part.delta : part.text;
+  const segments =
+    metadata.segments.length > 0
+      ? metadata.segments
+      : segmentsFromStandardPart(part, text);
+  return {
+    delivery: deliveryFromStreamPart(part),
+    isFinal: part.type === "transcript-final",
+    providerEvent: null,
+    segments,
+    speakerTurns: metadata.speakerTurns,
+    ...(metadata.speechFinal === undefined
+      ? {}
+      : { speechFinal: metadata.speechFinal }),
+    text,
+    type: "transcript",
+    words: metadata.words,
+  };
+};
+
+const deliveryFromStreamPart = (
+  part: Extract<
+    TranscriptionStreamPart,
+    {
+      type: "transcript-delta" | "transcript-final" | "transcript-partial";
+    }
+  >
+): RealtimeTranscriptEvent["delivery"] => {
+  if (part.type === "transcript-delta") {
+    return "delta";
+  }
+  return part.type === "transcript-partial" ? "interim" : "committed";
+};
+
+interface TimberVoxStreamMetadata {
+  segments: TranscriptSegment[];
+  speakerTurns: TranscriptSpeakerTurn[];
+  speechFinal?: boolean;
+  words: TranscriptWord[];
+}
+
+const timbervoxMetadata = (value: unknown): TimberVoxStreamMetadata => {
+  if (!isRecord(value)) {
+    return { segments: [], speakerTurns: [], words: [] };
+  }
+  return {
+    segments: timedTextArray(value.segments),
+    speakerTurns: timedTextArray(value.speakerTurns),
+    ...(typeof value.speechFinal === "boolean"
+      ? { speechFinal: value.speechFinal }
+      : {}),
+    words: timedTextArray(value.words),
+  };
+};
+
+const timedTextArray = <
+  T extends TranscriptSegment | TranscriptSpeakerTurn | TranscriptWord,
+>(
+  value: unknown
+): T[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const items: T[] = [];
+  for (const item of value) {
+    if (
+      !isRecord(item) ||
+      typeof item.text !== "string" ||
+      typeof item.startSeconds !== "number" ||
+      typeof item.endSeconds !== "number"
+    ) {
+      continue;
+    }
+    items.push(item as T);
+  }
+  return items;
+};
+
+const segmentsFromStandardPart = (
+  part: Extract<
+    TranscriptionStreamPart,
+    {
+      type: "transcript-delta" | "transcript-final" | "transcript-partial";
+    }
+  >,
+  text: string
+): TranscriptSegment[] => {
+  if (part.type === "transcript-delta" || part.startSecond === undefined) {
+    return [];
+  }
+  let endSeconds: number | undefined;
+  if (part.type === "transcript-final") {
+    endSeconds = part.endSecond;
+  } else if (part.durationInSeconds !== undefined) {
+    endSeconds = part.startSecond + part.durationInSeconds;
+  }
+  return endSeconds === undefined
+    ? []
+    : [{ endSeconds, startSeconds: part.startSecond, text }];
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const wordText = (value: Record<string, unknown>): string | null => {
   const candidate = value.punctuated_word ?? value.text ?? value.word;
