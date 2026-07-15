@@ -46,7 +46,7 @@ public struct SCScrubBarContext {
 }
 
 private struct SCScrubBarContextKey: EnvironmentKey {
-  nonisolated(unsafe) static let defaultValue: SCScrubBarContext? = nil
+  static var defaultValue: SCScrubBarContext? { nil }
 }
 
 extension EnvironmentValues {

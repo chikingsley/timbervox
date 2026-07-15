@@ -41,10 +41,12 @@ public struct SCComboboxCollection<
   @Environment(\.scComboboxContext) private var context
   @Environment(\.theme) private var theme
   @State private var highlightedValue: Value?
+  @FocusState private var isCollectionFocused: Bool
 
   private let options: [SCComboboxOption<Value>]
   private let customFilter: ((SCComboboxOption<Value>, String) -> Bool)?
   private let autoHighlight: Bool
+  private let focusesSelectionOnAppear: Bool
   private let selectsOnRowTap: Bool
   private let row: (SCComboboxOption<Value>, Bool, Bool, SCComboboxSelectionAction) -> Row
   private let groupHeader: (String) -> GroupHeader
@@ -53,6 +55,7 @@ public struct SCComboboxCollection<
   public init(
     options: [SCComboboxOption<Value>],
     autoHighlight: Bool = true,
+    focusesSelectionOnAppear: Bool = false,
     selectsOnRowTap: Bool = true,
     filter: ((SCComboboxOption<Value>, String) -> Bool)? = nil,
     @ViewBuilder row:
@@ -67,6 +70,7 @@ public struct SCComboboxCollection<
   ) {
     self.options = options
     self.autoHighlight = autoHighlight
+    self.focusesSelectionOnAppear = focusesSelectionOnAppear
     self.selectsOnRowTap = selectsOnRowTap
     self.customFilter = filter
     self.row = row
@@ -99,11 +103,30 @@ public struct SCComboboxCollection<
             }
             .padding(6)
           }
+          .id(context.query.wrappedValue)
           .onChange(of: highlightedValue) { _, value in
             if let value { proxy.scrollTo(value) }
           }
         }
       }
+    }
+    .focusable(focusesSelectionOnAppear)
+    .focused($isCollectionFocused)
+    .focusEffectDisabled()
+    .onKeyPress(.upArrow) {
+      moveHighlight(by: -1)
+      return .handled
+    }
+    .onKeyPress(.downArrow) {
+      moveHighlight(by: 1)
+      return .handled
+    }
+    .onKeyPress(.return) {
+      selectHighlighted() ? .handled : .ignored
+    }
+    .onKeyPress(.escape) {
+      context.isPresented.wrappedValue = false
+      return .handled
     }
     .onAppear(perform: installKeyboardHandlers)
     .onDisappear {
@@ -136,7 +159,10 @@ public struct SCComboboxCollection<
           selectsOnRowTap: selectsOnRowTap
         )
       )
-      .focusable(!context.isDisabled && !option.isDisabled)
+      .focusable(
+        !focusesSelectionOnAppear && !context.isDisabled && !option.isDisabled
+      )
+      .focusEffectDisabled()
       .onKeyPress(.return) {
         guard !context.isDisabled, !option.isDisabled else { return .ignored }
         context.select(AnyHashable(option.value))
@@ -183,12 +209,23 @@ public struct SCComboboxCollection<
 
   private func installKeyboardHandlers() {
     resetHighlight()
+    if focusesSelectionOnAppear {
+      DispatchQueue.main.async { isCollectionFocused = true }
+    }
     context.keyboard.moveHighlight = moveHighlight
     context.keyboard.selectHighlighted = selectHighlighted
   }
 
   private func resetHighlight() {
-    highlightedValue = autoHighlight ? selectableOptions.first?.value : nil
+    guard autoHighlight else {
+      highlightedValue = nil
+      return
+    }
+
+    highlightedValue =
+      selectableOptions.first {
+        context.selectedValues.contains(AnyHashable($0.value))
+      }?.value ?? selectableOptions.first?.value
   }
 
   private func moveHighlight(by offset: Int) {

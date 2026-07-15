@@ -3,6 +3,7 @@ import Foundation
 struct CloudRealtimeSessionOptions: Sendable {
   var model: String
   var language: String?
+  var diarize = false
   var sampleRate = 16_000
   var encoding = "linear16"
   var interimResults = true
@@ -234,6 +235,9 @@ actor CloudRealtimeTranscriptionClient {
 
     if let language = options.language {
       components.queryItems?.append(URLQueryItem(name: "language", value: language))
+    }
+    if options.diarize {
+      components.queryItems?.append(URLQueryItem(name: "diarize", value: "true"))
     }
 
     guard let url = components.url else {

@@ -35,6 +35,7 @@ public struct SCCombobox<Value: Hashable>: View {
   private let showsSearchField: Bool
   private let contentWidth: CGFloat
   private let contentMaxHeight: CGFloat
+  private let estimatedRowHeight: CGFloat
   private let customFilter: ((SCComboboxOption<Value>, String) -> Bool)?
   private let customTrigger: (([SCComboboxOption<Value>], Bool) -> AnyView)?
   private let customRow: ((SCComboboxOption<Value>, Bool, SCComboboxSelectionAction) -> AnyView)?
@@ -58,6 +59,7 @@ public struct SCCombobox<Value: Hashable>: View {
     showsSearchField: Bool = true,
     contentWidth: CGFloat = 240,
     contentMaxHeight: CGFloat = 320,
+    estimatedRowHeight: CGFloat = 36,
     filter: ((SCComboboxOption<Value>, String) -> Bool)? = nil
   ) {
     self.selection = .single(selection)
@@ -69,6 +71,7 @@ public struct SCCombobox<Value: Hashable>: View {
     self.showsSearchField = showsSearchField
     self.contentWidth = contentWidth
     self.contentMaxHeight = contentMaxHeight
+    self.estimatedRowHeight = estimatedRowHeight
     self.customFilter = filter
     self.customTrigger = nil
     self.customRow = nil
@@ -89,6 +92,7 @@ public struct SCCombobox<Value: Hashable>: View {
     showsSearchField: Bool = true,
     contentWidth: CGFloat = 240,
     contentMaxHeight: CGFloat = 320,
+    estimatedRowHeight: CGFloat = 36,
     filter: ((SCComboboxOption<Value>, String) -> Bool)? = nil
   ) {
     self.selection = .multiple(selection)
@@ -100,6 +104,7 @@ public struct SCCombobox<Value: Hashable>: View {
     self.showsSearchField = showsSearchField
     self.contentWidth = contentWidth
     self.contentMaxHeight = contentMaxHeight
+    self.estimatedRowHeight = estimatedRowHeight
     self.customFilter = filter
     self.customTrigger = nil
     self.customRow = nil
@@ -120,6 +125,7 @@ public struct SCCombobox<Value: Hashable>: View {
     showsSearchField: Bool = true,
     contentWidth: CGFloat = 240,
     contentMaxHeight: CGFloat = 320,
+    estimatedRowHeight: CGFloat = 36,
     filter: ((SCComboboxOption<Value>, String) -> Bool)? = nil,
     selectsOnRowTap: Bool = true,
     @ViewBuilder trigger: @escaping (_ selected: [SCComboboxOption<Value>], _ expanded: Bool) -> Trigger,
@@ -141,6 +147,7 @@ public struct SCCombobox<Value: Hashable>: View {
     self.showsSearchField = showsSearchField
     self.contentWidth = contentWidth
     self.contentMaxHeight = contentMaxHeight
+    self.estimatedRowHeight = estimatedRowHeight
     self.customFilter = filter
     self.customTrigger = { AnyView(trigger($0, $1)) }
     self.customRow = { AnyView(row($0, $1, $2)) }
@@ -160,6 +167,7 @@ public struct SCCombobox<Value: Hashable>: View {
     showsSearchField: Bool = true,
     contentWidth: CGFloat = 240,
     contentMaxHeight: CGFloat = 320,
+    estimatedRowHeight: CGFloat = 36,
     filter: ((SCComboboxOption<Value>, String) -> Bool)? = nil,
     @ViewBuilder trigger: @escaping (_ selected: [SCComboboxOption<Value>], _ expanded: Bool) -> Trigger,
     @ViewBuilder row: @escaping (_ option: SCComboboxOption<Value>, _ selected: Bool) -> Row,
@@ -175,6 +183,7 @@ public struct SCCombobox<Value: Hashable>: View {
     self.showsSearchField = showsSearchField
     self.contentWidth = contentWidth
     self.contentMaxHeight = contentMaxHeight
+    self.estimatedRowHeight = estimatedRowHeight
     self.customFilter = filter
     self.customTrigger = { AnyView(trigger($0, $1)) }
     self.customRow = { option, selected, _ in AnyView(row(option, selected)) }
@@ -276,6 +285,7 @@ public struct SCCombobox<Value: Hashable>: View {
   private var collection: some View {
     SCComboboxCollection(
       options: options,
+      focusesSelectionOnAppear: !showsSearchField,
       selectsOnRowTap: customRowsSelectOnTap,
       filter: customFilter,
       row: { option, isSelected, _, select in
@@ -329,6 +339,9 @@ public struct SCCombobox<Value: Hashable>: View {
     }
   }
 
+}
+
+extension SCCombobox {
   private func selectedOptions(for values: [Value]) -> [SCComboboxOption<Value>] {
     let selected = Set(values)
     return options.filter { selected.contains($0.value) }
@@ -343,9 +356,7 @@ public struct SCCombobox<Value: Hashable>: View {
     }
     return "\(selected.count) selected"
   }
-}
 
-extension SCCombobox {
   fileprivate func menuContent(query: String) -> some View {
     VStack(spacing: 0) {
       if showsSearchField {
@@ -379,7 +390,9 @@ extension SCCombobox {
       ? options
       : options.filter { customFilter?($0, query) ?? $0.matches(query) }
     let groupCount = Set(filtered.compactMap(\.group)).count
-    let intrinsicHeight = CGFloat(filtered.count * 36 + groupCount * 29 + 12)
+    let intrinsicHeight =
+      CGFloat(filtered.count) * max(estimatedRowHeight, 1)
+      + CGFloat(groupCount * 29 + 12)
     let availableHeight = max(contentMaxHeight - (showsSearchField ? 49 : 0), 80)
     return min(max(intrinsicHeight, 52), availableHeight)
   }

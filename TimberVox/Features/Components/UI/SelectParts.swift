@@ -75,6 +75,8 @@ public struct SCSelectOption<Value: Hashable>: Identifiable {
   }
 }
 
+extension SCSelectOption: Sendable where Value: Sendable {}
+
 // MARK: - Trigger and value
 
 /// The real Menu trigger configuration for an `SCSelect`.

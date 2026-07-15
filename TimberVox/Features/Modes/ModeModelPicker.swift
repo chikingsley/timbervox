@@ -15,6 +15,7 @@ struct ModeVoiceModelPicker: View {
       searchPlaceholder: "Search models",
       contentWidth: ModeLayout.modelPopoverWidth,
       contentMaxHeight: 326,
+      estimatedRowHeight: 64,
       selectsOnRowTap: false,
       trigger: { selected, expanded in
         let model = selected.first.flatMap(model(for:))
@@ -183,7 +184,7 @@ struct ModeVoiceModelPicker: View {
         .foregroundStyle(state.isFailure ? Color.red : .secondary)
         .lineLimit(1)
       if case .downloading(let progress) = state {
-        ProgressView(value: progress)
+        ProgressView(value: progress.fractionCompleted)
           .progressViewStyle(.scLinear)
           .frame(width: 48)
       }
@@ -220,6 +221,7 @@ struct ModeLanguageModelPicker: View {
       searchPlaceholder: "Search models",
       contentWidth: ModeLayout.modelPopoverWidth,
       contentMaxHeight: 240,
+      estimatedRowHeight: 50,
       selectsOnRowTap: false,
       trigger: { selected, expanded in
         let model = selected.first.flatMap(model(for:))
@@ -341,7 +343,7 @@ private extension FluidAudioModelPackageState {
     case .downloaded:
       "Prepare model"
     case .downloading(let progress):
-      "Downloading model, \(Self.percentage(progress)) percent"
+      "Downloading model, \(Self.percentage(progress.fractionCompleted)) percent"
     case .failed:
       "Retry model download"
     case .notDownloaded:
@@ -363,7 +365,7 @@ private extension FluidAudioModelPackageState {
     case .downloaded(let unverified):
       "Downloaded · \(unverified) to prepare\(size)"
     case .downloading(let progress):
-      "Downloading · \(Self.percentage(progress))%"
+      "Downloading · \(Self.percentage(progress.fractionCompleted))% · \(Self.byteProgress(progress))"
     case .failed(let message):
       "Failed · \(message)"
     case .notDownloaded:
@@ -388,5 +390,11 @@ private extension FluidAudioModelPackageState {
 
   private static func formattedBytes(_ bytes: Int64) -> String {
     ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+  }
+
+  private static func byteProgress(_ progress: FluidAudioModelPackageProgress) -> String {
+    let completed = formattedBytes(progress.estimatedCompletedBytes)
+    let total = formattedBytes(progress.estimatedTotalBytes)
+    return "about \(completed) of \(total)"
   }
 }

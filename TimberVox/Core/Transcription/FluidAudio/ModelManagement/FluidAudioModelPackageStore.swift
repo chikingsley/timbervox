@@ -1,95 +1,6 @@
 import Foundation
 import Observation
 
-enum FluidAudioModelAsset: Equatable, Hashable, Sendable {
-  case batch(LocalTranscriptionRouteID)
-  case realtime(LocalTranscriptionRouteID, language: String)
-}
-
-enum FluidAudioModelAssetState: Equatable, Sendable {
-  case downloaded
-  case missing
-  case verified
-}
-
-struct FluidAudioModelPackage: Equatable, Identifiable, Sendable {
-  var id: String
-  var assets: [FluidAudioModelAsset]
-}
-
-enum FluidAudioModelPackageCatalog {
-  static let packages = [hummingbird, nightingale, songbird]
-
-  static func package(id: String) -> FluidAudioModelPackage? {
-    packages.first { $0.id == id }
-  }
-
-  private static let hummingbird = FluidAudioModelPackage(
-    id: "local-hummingbird",
-    assets: [
-      .batch(.parakeetTdtCtc110M),
-      .realtime(.nemotronEnglish560, language: "en"),
-    ]
-  )
-
-  private static let nightingale = FluidAudioModelPackage(
-    id: "local-nightingale",
-    assets: [
-      .batch(.parakeetTdtV3),
-      .realtime(.nemotronEnglish1120, language: "en"),
-    ]
-  )
-
-  private static let songbird = FluidAudioModelPackage(
-    id: "local-songbird",
-    assets: [
-      .batch(.parakeetTdtV3),
-      .realtime(.nemotronMultilingual1120, language: "en"),
-      .realtime(.nemotronMultilingual1120, language: "ja"),
-    ]
-  )
-}
-
-enum FluidAudioModelPackageState: Equatable, Sendable {
-  case checking
-  case downloaded(unverified: Int)
-  case downloading(progress: Double)
-  case failed(String)
-  case notDownloaded
-  case partial(downloaded: Int, verified: Int, total: Int)
-  case ready
-  case unknown
-}
-
-struct FluidAudioModelDownloadProgress: Equatable, Identifiable, Sendable {
-  let modelID: String
-  let progress: Double
-
-  var id: String { modelID }
-}
-
-enum FluidAudioModelDownloadOutcome: Equatable, Sendable {
-  case failed(String)
-  case ready
-}
-
-struct FluidAudioModelDownloadResult: Equatable, Identifiable, Sendable {
-  let modelID: String
-  let outcome: FluidAudioModelDownloadOutcome
-
-  var id: String { modelID }
-}
-
-protocol FluidAudioModelAssetManaging: Sendable {
-  func state(of asset: FluidAudioModelAsset) async -> FluidAudioModelAssetState
-  func installedBytes(of asset: FluidAudioModelAsset) async -> Int64
-  func prepare(
-    _ asset: FluidAudioModelAsset,
-    progress: @Sendable @escaping (Double) -> Void
-  ) async throws
-  func delete(_ asset: FluidAudioModelAsset) async throws
-}
-
 actor FluidAudioModelAssetBackend: FluidAudioModelAssetManaging {
   func state(of asset: FluidAudioModelAsset) async -> FluidAudioModelAssetState {
     let isDownloaded =
@@ -179,6 +90,8 @@ final class FluidAudioModelPackageStore {
   private(set) var states: [String: FluidAudioModelPackageState] = [:]
   private(set) var installedByteCounts: [String: Int64] = [:]
   private(set) var downloadResults: [String: FluidAudioModelDownloadOutcome] = [:]
+  private var assetPreparationTasks: [FluidAudioModelAsset: Task<Void, Error>] = [:]
+  private var packageProgressBytes: [String: Int64] = [:]
 
   init(backend: any FluidAudioModelAssetManaging) {
     self.backend = backend
@@ -229,19 +142,28 @@ final class FluidAudioModelPackageStore {
       downloadResults.removeAll()
     }
     downloadResults[modelID] = nil
-    states[modelID] = .downloading(progress: 0)
+    packageProgressBytes[modelID] = 0
+    updateDownloadProgress(modelID: modelID, package: package, estimatedCompletedBytes: 0)
     do {
-      let assetCount = Double(package.assets.count)
       for (index, asset) in package.assets.enumerated() {
-        if await backend.state(of: asset) == .verified { continue }
-        let completedAssets = Double(index)
-        try await backend.prepare(asset) { [weak self] assetProgress in
-          Task { @MainActor in
-            self?.states[modelID] = .downloading(
-              progress: (completedAssets + assetProgress) / assetCount
-            )
-          }
+        let completedBytes = package.assets.prefix(index).reduce(Int64(0)) {
+          $0 + FluidAudioModelPackageCatalog.estimatedDownloadBytes(for: $1)
         }
+        if await backend.state(of: asset) == .verified {
+          updateDownloadProgress(
+            modelID: modelID,
+            package: package,
+            estimatedCompletedBytes: completedBytes
+              + FluidAudioModelPackageCatalog.estimatedDownloadBytes(for: asset)
+          )
+          continue
+        }
+        try await prepare(
+          asset,
+          for: package,
+          modelID: modelID,
+          completedBytesBeforeAsset: completedBytes
+        )
       }
       await updateResolvedSnapshot(for: package)
       downloadResults[modelID] = .ready
@@ -249,6 +171,7 @@ final class FluidAudioModelPackageStore {
       states[modelID] = .failed(error.localizedDescription)
       downloadResults[modelID] = .failed(error.localizedDescription)
     }
+    packageProgressBytes[modelID] = nil
   }
 
   func dismissDownloadResults() {
@@ -299,6 +222,62 @@ final class FluidAudioModelPackageStore {
     }
     installedByteCounts[package.id] = byteCount
     states[package.id] = await resolvedState(for: package)
+  }
+
+  private func prepare(
+    _ asset: FluidAudioModelAsset,
+    for package: FluidAudioModelPackage,
+    modelID: String,
+    completedBytesBeforeAsset: Int64
+  ) async throws {
+    if let existingTask = assetPreparationTasks[asset] {
+      try await existingTask.value
+      updateDownloadProgress(
+        modelID: modelID,
+        package: package,
+        estimatedCompletedBytes: completedBytesBeforeAsset
+          + FluidAudioModelPackageCatalog.estimatedDownloadBytes(for: asset)
+      )
+      return
+    }
+
+    let assetBytes = FluidAudioModelPackageCatalog.estimatedDownloadBytes(for: asset)
+    let task = Task { [backend] in
+      try await backend.prepare(asset) { [weak self] assetProgress in
+        Task { @MainActor in
+          self?.updateDownloadProgress(
+            modelID: modelID,
+            package: package,
+            estimatedCompletedBytes: completedBytesBeforeAsset
+              + Int64((Double(assetBytes) * min(max(assetProgress, 0), 1)).rounded())
+          )
+        }
+      }
+    }
+    assetPreparationTasks[asset] = task
+    defer { assetPreparationTasks[asset] = nil }
+    try await task.value
+    updateDownloadProgress(
+      modelID: modelID,
+      package: package,
+      estimatedCompletedBytes: completedBytesBeforeAsset + assetBytes
+    )
+  }
+
+  private func updateDownloadProgress(
+    modelID: String,
+    package: FluidAudioModelPackage,
+    estimatedCompletedBytes: Int64
+  ) {
+    let previousBytes = packageProgressBytes[modelID] ?? 0
+    let completedBytes = max(previousBytes, estimatedCompletedBytes)
+    packageProgressBytes[modelID] = completedBytes
+    states[modelID] = .downloading(
+      FluidAudioModelPackageProgress(
+        estimatedCompletedBytes: min(completedBytes, package.estimatedDownloadBytes),
+        estimatedTotalBytes: package.estimatedDownloadBytes
+      )
+    )
   }
 
   private func assetsRequiredByOtherInstalledPackages(

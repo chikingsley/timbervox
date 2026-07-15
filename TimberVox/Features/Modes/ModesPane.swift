@@ -6,6 +6,9 @@ struct ModesPane: View {
   @State private var selectedModeID: String?
   @State private var pendingDeleteID: String?
   @State private var showsDeleteConfirmation = false
+  @State private var showsModeImporter = false
+  @State private var showsImportError = false
+  @State private var importErrorMessage = ""
 
   var body: some View {
     VStack(spacing: 0) {
@@ -25,6 +28,11 @@ struct ModesPane: View {
         )
       } else {
         AppPageHeader("Modes") {
+          Button("Import mode", systemImage: "square.and.arrow.down") {
+            showsModeImporter = true
+          }
+          .buttonStyle(.sc(.secondary, size: .sm))
+
           Button("Create mode", systemImage: "plus") {
             createMode()
           }
@@ -52,6 +60,17 @@ struct ModesPane: View {
       role: .destructive,
       onConfirm: confirmDelete
     )
+    .appNoticeDialog(
+      isPresented: $showsImportError,
+      title: "Couldn’t import mode",
+      message: importErrorMessage
+    )
+    .fileImporter(
+      isPresented: $showsModeImporter,
+      allowedContentTypes: [.timberVoxMode, .json]
+    ) { result in
+      importMode(result)
+    }
   }
 
   private var deleteMessage: String {
@@ -103,6 +122,34 @@ struct ModesPane: View {
       selectedModeID = nil
     }
     self.pendingDeleteID = nil
+  }
+
+  private func importMode(_ result: Result<URL, Error>) {
+    do {
+      let url = try result.get()
+      let hasSecurityAccess = url.startAccessingSecurityScopedResource()
+      defer {
+        if hasSecurityAccess {
+          url.stopAccessingSecurityScopedResource()
+        }
+      }
+      let data = try Data(contentsOf: url, options: .mappedIfSafe)
+      let file = try TimberVoxModeFile.decode(data)
+      var importedMode = transcriptionCatalog.normalized(file.mode)
+      if importedMode.usesTextTransform,
+        !transcriptionCatalog.languageModels.contains(where: {
+          $0.id == importedMode.textTransformModelID
+        }),
+        let fallbackLanguageModel = transcriptionCatalog.languageModels.first
+      {
+        importedMode.textTransformModelID = fallbackLanguageModel.id
+      }
+      let newID = modeStore.importMode(importedMode)
+      selectedModeID = newID
+    } catch {
+      importErrorMessage = error.localizedDescription
+      showsImportError = true
+    }
   }
 
   private func normalizeModes() {
@@ -157,9 +204,10 @@ private struct ModeDetailHeader: View {
 
         if let mode {
           ShareLink(
-            item: sharePayload(for: mode),
+            item: TimberVoxModeTransfer(file: TimberVoxModeFile(mode: mode)),
             subject: Text("TimberVox mode: \(mode.name)"),
-            message: Text("Import this TimberVox mode configuration.")
+            message: Text("Import this TimberVox mode configuration."),
+            preview: SharePreview(mode.name)
           ) {
             Image(systemName: "square.and.arrow.up")
           }
@@ -199,14 +247,6 @@ private struct ModeDetailHeader: View {
     }
   }
 
-  private func sharePayload(for mode: DictationMode) -> String {
-    let encoder = JSONEncoder()
-    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-    guard let data = try? encoder.encode(mode), let json = String(data: data, encoding: .utf8) else {
-      return mode.name
-    }
-    return json
-  }
 }
 
 extension ModeTextTransformPreset {

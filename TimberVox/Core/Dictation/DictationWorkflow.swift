@@ -225,6 +225,7 @@ final class DictationWorkflow {
     try await transcription.startRealtime(
       route: plan.route,
       language: plan.mode.languageCode,
+      diarize: plan.mode.diarizationEnabled,
       onTranscript: callbacks.onLiveTranscript,
       onError: callbacks.onRealtimeError
     )

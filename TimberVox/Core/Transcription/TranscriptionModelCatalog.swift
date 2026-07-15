@@ -156,7 +156,8 @@ enum LocalTranscriptionModelCatalog {
         source: "route-capability",
         value: nil
       ),
-      approximateDownloadBytes: 1_750_000_000
+      approximateDownloadBytes:
+        FluidAudioModelPackageCatalog.package(id: "local-hummingbird")?.estimatedDownloadBytes
     )
   )
 
@@ -204,7 +205,8 @@ enum LocalTranscriptionModelCatalog {
         source: "route-capability",
         value: nil
       ),
-      approximateDownloadBytes: 2_050_000_000
+      approximateDownloadBytes:
+        FluidAudioModelPackageCatalog.package(id: "local-nightingale")?.estimatedDownloadBytes
     )
   )
 
@@ -252,7 +254,8 @@ enum LocalTranscriptionModelCatalog {
         source: "route-capability",
         value: nil
       ),
-      approximateDownloadBytes: 2_050_000_000
+      approximateDownloadBytes:
+        FluidAudioModelPackageCatalog.package(id: "local-songbird")?.estimatedDownloadBytes
     )
   )
 

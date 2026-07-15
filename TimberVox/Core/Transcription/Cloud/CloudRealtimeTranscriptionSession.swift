@@ -19,6 +19,7 @@ final class CloudRealtimeTranscriptionSession {
   func start(
     model: String,
     language: String?,
+    diarize: Bool = false,
     onTranscript: @escaping @Sendable (String) -> Void,
     onError: @escaping @Sendable (String) -> Void
   ) async throws {
@@ -29,7 +30,7 @@ final class CloudRealtimeTranscriptionSession {
 
     let client = makeClient()
     let events = try await client.connect(
-      options: CloudRealtimeSessionOptions(model: model, language: language)
+      options: CloudRealtimeSessionOptions(model: model, language: language, diarize: diarize)
     )
     self.client = client
     eventTask = Task { [weak self] in

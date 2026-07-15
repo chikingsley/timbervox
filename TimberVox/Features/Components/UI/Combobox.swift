@@ -98,17 +98,19 @@ struct SCComboboxContext {
 }
 
 private struct SCComboboxContextKey: EnvironmentKey {
-  nonisolated(unsafe) static let defaultValue = SCComboboxContext(
-    isPresented: .constant(false),
-    query: .constant(""),
-    selectedValues: [],
-    allowsMultipleSelection: false,
-    isDisabled: true,
-    select: { _ in },
-    remove: { _ in },
-    clear: {},
-    keyboard: SCComboboxKeyboardCoordinator()
-  )
+  static var defaultValue: SCComboboxContext {
+    SCComboboxContext(
+      isPresented: .constant(false),
+      query: .constant(""),
+      selectedValues: [],
+      allowsMultipleSelection: false,
+      isDisabled: true,
+      select: { _ in },
+      remove: { _ in },
+      clear: {},
+      keyboard: SCComboboxKeyboardCoordinator()
+    )
+  }
 }
 
 extension EnvironmentValues {

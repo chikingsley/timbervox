@@ -28,8 +28,9 @@ public struct Theme: Sendable {
   public var mutedForeground: Color
   public var accent: Color
   public var accentForeground: Color
+  /// Destructive surfaces render fixed white content, mirroring upstream,
+  /// which dropped `--destructive-foreground` in Tailwind v4 for `text-white`.
   public var destructive: Color
-  public var destructiveForeground: Color
 
   // MARK: Chrome
   public var border: Color
@@ -74,7 +75,6 @@ public struct Theme: Sendable {
     accent: Color,
     accentForeground: Color,
     destructive: Color,
-    destructiveForeground: Color,
     border: Color,
     input: Color,
     ring: Color,
@@ -109,7 +109,6 @@ public struct Theme: Sendable {
     self.accent = accent
     self.accentForeground = accentForeground
     self.destructive = destructive
-    self.destructiveForeground = destructiveForeground
     self.border = border
     self.input = input
     self.ring = ring
@@ -133,6 +132,10 @@ public struct Theme: Sendable {
 
 // MARK: - Built-in preset
 
+/// Mirrors the current upstream zinc theme (ui.shadcn.com `r/colors/zinc.json`,
+/// oklch values mapped to their palette scale entries). Upstream renders the
+/// zinc chart series as monochrome zinc steps identical in both modes, and
+/// dark borders/inputs as translucent white rather than an opaque gray.
 private struct SCDefaultPresetColors {
   let background: Color = .adaptive(light: .white, dark: .zinc950)
   let foreground: Color = .adaptive(light: .zinc950, dark: .zinc50)
@@ -140,7 +143,7 @@ private struct SCDefaultPresetColors {
   let cardForeground: Color = .adaptive(light: .zinc950, dark: .zinc50)
   let popover: Color = .adaptive(light: .white, dark: .zinc900)
   let popoverForeground: Color = .adaptive(light: .zinc950, dark: .zinc50)
-  let primary: Color = .adaptive(light: .zinc900, dark: .zinc50)
+  let primary: Color = .adaptive(light: .zinc900, dark: .zinc200)
   let primaryForeground: Color = .adaptive(light: .zinc50, dark: .zinc900)
   let secondary: Color = .adaptive(light: .zinc100, dark: .zinc800)
   let secondaryForeground: Color = .adaptive(light: .zinc900, dark: .zinc50)
@@ -148,23 +151,22 @@ private struct SCDefaultPresetColors {
   let mutedForeground: Color = .adaptive(light: .zinc500, dark: .zinc400)
   let accent: Color = .adaptive(light: .zinc100, dark: .zinc800)
   let accentForeground: Color = .adaptive(light: .zinc900, dark: .zinc50)
-  let destructive: Color = .adaptive(light: .red600, dark: .red700)
-  let destructiveForeground: Color = .adaptive(light: .white, dark: .white)
-  let border: Color = .adaptive(light: .zinc200, dark: .zinc800)
-  let input: Color = .adaptive(light: .zinc200, dark: .zinc800)
+  let destructive: Color = .adaptive(light: .red600, dark: .red400)
+  let border: Color = .adaptive(light: .zinc200, dark: .white.opacity(0.10))
+  let input: Color = .adaptive(light: .zinc200, dark: .white.opacity(0.15))
   let ring: Color = .adaptive(light: .zinc400, dark: .zinc500)
-  let chart1: Color = .adaptive(light: Color(hex: 0xE8734A), dark: Color(hex: 0x2662D9))
-  let chart2: Color = .adaptive(light: Color(hex: 0x2A9D90), dark: Color(hex: 0x2EB88A))
-  let chart3: Color = .adaptive(light: Color(hex: 0x274754), dark: Color(hex: 0xE88C30))
-  let chart4: Color = .adaptive(light: Color(hex: 0xE8C468), dark: Color(hex: 0xAF57DB))
-  let chart5: Color = .adaptive(light: Color(hex: 0xF4A462), dark: Color(hex: 0xE23670))
+  let chart1: Color = .zinc300
+  let chart2: Color = .zinc500
+  let chart3: Color = .zinc600
+  let chart4: Color = .zinc700
+  let chart5: Color = .zinc800
   let sidebar: Color = .adaptive(light: .zinc50, dark: .zinc900)
   let sidebarForeground: Color = .adaptive(light: .zinc950, dark: .zinc50)
-  let sidebarPrimary: Color = .adaptive(light: .zinc900, dark: .zinc50)
-  let sidebarPrimaryForeground: Color = .adaptive(light: .zinc50, dark: .zinc900)
-  let sidebarAccent: Color = .adaptive(light: .zinc200, dark: .zinc800)
+  let sidebarPrimary: Color = .adaptive(light: .zinc900, dark: .blue700)
+  let sidebarPrimaryForeground: Color = .zinc50
+  let sidebarAccent: Color = .adaptive(light: .zinc100, dark: .zinc800)
   let sidebarAccentForeground: Color = .adaptive(light: .zinc900, dark: .zinc50)
-  let sidebarBorder: Color = .adaptive(light: .zinc200, dark: .zinc800)
+  let sidebarBorder: Color = .adaptive(light: .zinc200, dark: .white.opacity(0.10))
   let sidebarRing: Color = .adaptive(light: .zinc400, dark: .zinc500)
 }
 
@@ -195,7 +197,6 @@ extension Theme {
       accent: colors.accent,
       accentForeground: colors.accentForeground,
       destructive: colors.destructive,
-      destructiveForeground: colors.destructiveForeground,
       border: colors.border,
       input: colors.input,
       ring: colors.ring,

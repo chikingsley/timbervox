@@ -30,6 +30,7 @@ final class TranscriptionRuntime {
   func startRealtime(
     route: TranscriptionRouteSpec,
     language: String?,
+    diarize: Bool,
     onTranscript: @escaping @Sendable (String) -> Void,
     onError: @escaping @Sendable (String) -> Void
   ) async throws {
@@ -42,10 +43,16 @@ final class TranscriptionRuntime {
         try await cloudRealtime.start(
           model: route.model,
           language: language,
+          diarize: diarize,
           onTranscript: onTranscript,
           onError: onError
         )
       case .local(let localRoute):
+        guard !diarize else {
+          throw TranscriptionRuntimeError.configuration(
+            "Local realtime speaker identification is not supported."
+          )
+        }
         await fluidAudioBatch.releaseLoadedModel()
         try await fluidAudioRealtime.start(
           route: localRoute,

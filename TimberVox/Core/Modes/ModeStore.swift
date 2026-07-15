@@ -127,6 +127,28 @@ final class ModeStore {
     modes.append(mode)
   }
 
+  @discardableResult
+  func importMode(_ importedMode: DictationMode) -> String {
+    var mode = importedMode
+    mode.id = UUID().uuidString
+    mode.name = availableImportedName(mode.name)
+    mode.nameIsCustomized = true
+    modes.append(mode)
+    return mode.id
+  }
+
+  private func availableImportedName(_ proposedName: String) -> String {
+    let trimmed = proposedName.trimmingCharacters(in: .whitespacesAndNewlines)
+    let base = trimmed.isEmpty ? "Imported Mode" : trimmed
+    let existingNames = Set(modes.map { $0.name.localizedLowercase })
+    guard existingNames.contains(base.localizedLowercase) else { return base }
+    var suffix = 2
+    while existingNames.contains("\(base) \(suffix)".localizedLowercase) {
+      suffix += 1
+    }
+    return "\(base) \(suffix)"
+  }
+
   private func saveModes() {
     guard let data = try? JSONEncoder().encode(modes) else { return }
     defaults.set(data, forKey: Self.modesKey)

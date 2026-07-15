@@ -121,6 +121,19 @@ struct ModeDetailForm: View {
       }
       .zIndex(10)
 
+      if capabilities?.supportsDiarization ?? false {
+        ModeSettingsRow(
+          "Speaker Identification",
+          hint: "Identify and separate speakers with the selected voice model."
+        ) {
+          Toggle(isOn: bindings.modeBinding(\.diarizationEnabled, fallback: mode.diarizationEnabled)) {
+            EmptyView()
+          }
+          .toggleStyle(.scSwitch)
+          .accessibilityLabel("Speaker Identification")
+        }
+      }
+
       if capabilities?.supportsRealtime ?? false,
         capabilities?.supportsBatch ?? false
       {
@@ -193,18 +206,6 @@ struct ModeDetailForm: View {
         .accessibilityLabel("Record from system audio")
       }
 
-      if capabilities?.supportsDiarization ?? false {
-        ModeSettingsRow(
-          "Identify Speakers",
-          hint: "Separate speakers when the selected transcription route supports it."
-        ) {
-          Toggle(isOn: bindings.modeBinding(\.diarizationEnabled, fallback: mode.diarizationEnabled)) {
-            EmptyView()
-          }
-          .toggleStyle(.scSwitch)
-          .accessibilityLabel("Identify Speakers")
-        }
-      }
     }
   }
 

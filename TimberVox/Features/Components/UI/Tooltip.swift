@@ -315,11 +315,12 @@ private struct SCTooltipPresentation: Equatable {
 }
 
 @Observable
-private final class SCTooltipCoordinator: @unchecked Sendable {
+@MainActor
+private final class SCTooltipCoordinator {
   let delay: Duration
   var presentation: SCTooltipPresentation?
 
-  init(delay: Duration) {
+  nonisolated init(delay: Duration) {
     self.delay = delay
   }
 
@@ -339,7 +340,7 @@ private final class SCTooltipCoordinator: @unchecked Sendable {
 }
 
 private struct SCTooltipCoordinatorKey: EnvironmentKey {
-  static let defaultValue: SCTooltipCoordinator? = nil
+  static var defaultValue: SCTooltipCoordinator? { nil }
 }
 
 extension EnvironmentValues {

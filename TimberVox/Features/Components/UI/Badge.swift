@@ -143,7 +143,7 @@ public struct SCBadgeModifier: ViewModifier {
     switch variant {
     case .default: return theme.primaryForeground
     case .secondary: return theme.secondaryForeground
-    case .destructive: return theme.destructiveForeground
+    case .destructive: return .white
     case .outline, .ghost: return theme.foreground
     case .link: return theme.primary
     }

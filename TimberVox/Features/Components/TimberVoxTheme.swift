@@ -53,7 +53,6 @@ extension Theme {
       dark: Color(red: 248 / 255, green: 248 / 255, blue: 248 / 255)
     ),
     destructive: .adaptive(light: .red600, dark: .red700),
-    destructiveForeground: .white,
     border: .adaptive(
       light: Color(red: 216 / 255, green: 216 / 255, blue: 216 / 255),
       dark: Color(red: 64 / 255, green: 64 / 255, blue: 64 / 255)

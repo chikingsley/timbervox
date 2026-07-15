@@ -215,6 +215,7 @@ public struct SCComboboxContent<Content: View>: View {
     ) {
       content
         .foregroundStyle(theme.popoverForeground)
+        .environment(\.scComboboxContext, context)
         .environment(\.theme, theme)
     }
   }

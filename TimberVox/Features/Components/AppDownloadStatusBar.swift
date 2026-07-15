@@ -94,17 +94,23 @@ struct AppDownloadStatusBar: View {
   private var combinedProgress: Double {
     let downloads = packageStore.activeDownloads
     guard !downloads.isEmpty else { return 0 }
-    return downloads.map(\.progress).reduce(0, +) / Double(downloads.count)
+    let completedBytes = downloads.map(\.progress.estimatedCompletedBytes).reduce(0, +)
+    let totalBytes = downloads.map(\.progress.estimatedTotalBytes).reduce(0, +)
+    guard totalBytes > 0 else { return 0 }
+    return Double(completedBytes) / Double(totalBytes)
   }
 
   private var statusLabel: String {
     let downloads = packageStore.activeDownloads
     if downloads.count == 1, let download = downloads.first {
       let name = catalog.models.first { $0.id == download.modelID }?.displayName ?? "model"
-      return "Downloading \(name)"
+      return "Downloading \(name) · \(Self.byteProgress(download.progress))"
     }
     if downloads.count > 1 {
-      return "Downloading \(downloads.count) models"
+      let completedBytes = downloads.map(\.progress.estimatedCompletedBytes).reduce(0, +)
+      let totalBytes = downloads.map(\.progress.estimatedTotalBytes).reduce(0, +)
+      return
+        "Downloading \(downloads.count) models · \(Self.byteProgress(completed: completedBytes, total: totalBytes))"
     }
 
     let results = packageStore.recentDownloadResults
@@ -158,5 +164,18 @@ struct AppDownloadStatusBar: View {
 
   private static func percentage(_ progress: Double) -> String {
     "\(Int((min(max(progress, 0), 1) * 100).rounded()))%"
+  }
+
+  private static func byteProgress(_ progress: FluidAudioModelPackageProgress) -> String {
+    byteProgress(
+      completed: progress.estimatedCompletedBytes,
+      total: progress.estimatedTotalBytes
+    )
+  }
+
+  private static func byteProgress(completed: Int64, total: Int64) -> String {
+    let completedLabel = ByteCountFormatter.string(fromByteCount: completed, countStyle: .file)
+    let totalLabel = ByteCountFormatter.string(fromByteCount: total, countStyle: .file)
+    return "about \(completedLabel) of \(totalLabel)"
   }
 }

@@ -43,10 +43,10 @@ public enum SCHoverCardChangeReason: Hashable, Sendable {
 }
 
 /// A concurrency-safe command for dismissing the nearest Swiftcn Hover Card.
-public struct SCDismissHoverCardAction: @unchecked Sendable {
-  private let action: @MainActor () -> Void
+public struct SCDismissHoverCardAction: Sendable {
+  private let action: @MainActor @Sendable () -> Void
 
-  public init(_ action: @escaping @MainActor () -> Void = {}) {
+  public init(_ action: @escaping @MainActor @Sendable () -> Void = {}) {
     self.action = action
   }
 

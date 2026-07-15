@@ -73,7 +73,7 @@ struct SCToggleGroupContext {
 }
 
 private struct SCToggleGroupContextKey: EnvironmentKey {
-  nonisolated(unsafe) static let defaultValue: SCToggleGroupContext? = nil
+  static var defaultValue: SCToggleGroupContext? { nil }
 }
 
 extension EnvironmentValues {

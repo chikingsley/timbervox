@@ -327,7 +327,7 @@ public struct SCTranscriptViewerContext {
 }
 
 private struct SCTranscriptViewerContextKey: EnvironmentKey {
-  nonisolated(unsafe) static let defaultValue: SCTranscriptViewerContext? = nil
+  static var defaultValue: SCTranscriptViewerContext? { nil }
 }
 
 extension EnvironmentValues {

@@ -47,8 +47,12 @@ enum SCSidebarMetrics {
 /// + `useSidebar` hook. `SCSidebarLayout` owns one and injects it into the
 /// environment; read it anywhere in the hierarchy via
 /// `@Environment(\.scSidebar)`.
+///
+/// Sidebar state is UI graph state. Main-actor isolation makes that ownership
+/// explicit instead of claiming the mutable reference is safe on every actor.
+@MainActor
 @Observable
-public final class SCSidebarState: @unchecked Sendable {
+public final class SCSidebarState {
   /// Whether the sidebar is expanded (drives regular-width layouts).
   public var isOpen: Bool
   /// Whether the sidebar sheet is presented (drives compact-width layouts).
@@ -102,8 +106,8 @@ public final class SCSidebarState: @unchecked Sendable {
 
 // MARK: - Environment
 
-private struct SCSidebarStateKey: EnvironmentKey {
-  static let defaultValue = SCSidebarState()
+private struct SCSidebarStateKey: @MainActor EnvironmentKey {
+  @MainActor static let defaultValue = SCSidebarState()
 }
 
 private struct SCSidebarIconRailKey: EnvironmentKey {
@@ -113,6 +117,7 @@ private struct SCSidebarIconRailKey: EnvironmentKey {
 extension EnvironmentValues {
   /// The enclosing sidebar's state — swiftcn's `useSidebar`. Read it to
   /// toggle or inspect the sidebar from anywhere inside `SCSidebarLayout`.
+  @MainActor
   public internal(set) var scSidebar: SCSidebarState {
     get { self[SCSidebarStateKey.self] }
     set { self[SCSidebarStateKey.self] = newValue }

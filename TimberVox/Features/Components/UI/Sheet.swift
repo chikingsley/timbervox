@@ -40,10 +40,10 @@ public enum SCSheetEdge: CaseIterable, Equatable, Hashable, Sendable {
 // MARK: - Compatibility dismissal environment
 
 /// A concurrency-safe command for dismissing the nearest Swiftcn Sheet.
-public struct SCDismissSheetAction: @unchecked Sendable {
-  private let action: @MainActor () -> Void
+public struct SCDismissSheetAction: Sendable {
+  private let action: @MainActor @Sendable () -> Void
 
-  public init(_ action: @escaping @MainActor () -> Void = {}) {
+  public init(_ action: @escaping @MainActor @Sendable () -> Void = {}) {
     self.action = action
   }
 
