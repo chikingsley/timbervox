@@ -150,22 +150,8 @@ struct TextTransformAPIClient: Sendable {
     api = APIConnector(baseURL: baseURL, session: session)
   }
 
-  func transform(
-    messages: [TextTransformMessage],
-    model: String,
-    providerOptions: [String: [String: APIJSONValue]] = [:],
-    temperature: Double? = nil
-  ) async throws -> TextTransformOutcome {
-    try await transform(
-      request: TextTransformRequest(
-        messages: messages,
-        model: model,
-        providerOptions: providerOptions,
-        temperature: temperature
-      )
-    )
-  }
-
+  /// One-shot v1/text call. The app streams via `streamTransform`; this stays
+  /// as the live-acceptance probe for the deployed one-shot endpoint.
   func transform(request: TextTransformRequest) async throws -> TextTransformOutcome {
     try await api.post(path: "v1/text", body: request, keyEncoding: .camelCase)
   }
