@@ -37,9 +37,13 @@ struct SettingsPane: View {
   private var localModelRetentionMinutes = FluidAudioModelRetentionPreference.defaultMinutes
   @AppStorage(DictationContextRetentionPreference.key)
   private var contextRetentionDays = DictationContextRetentionPreference.defaultDays
+  @AppStorage(RecordingRetentionPreference.key)
+  private var recordingRetentionDays = RecordingRetentionPreference.defaultDays
 
   @State private var launchAtLogin = false
   @State private var launchAtLoginLoaded = false
+  @State private var showsClearRecordingsConfirmation = false
+  @State private var storageUsedBytes: Int64 = 0
   @Environment(\.theme) private var theme
 
   var body: some View {
@@ -68,6 +72,18 @@ struct SettingsPane: View {
       launchAtLogin = await Task.detached { SMAppService.mainApp.status == .enabled }.value
       launchAtLoginLoaded = true
     }
+    .task {
+      await refreshStorageUsed()
+    }
+    .scAlertDialog(
+      isPresented: $showsClearRecordingsConfirmation,
+      title: "Clear recordings?",
+      message:
+        "All saved dictation audio is deleted. Transcripts stay in History, but playback and re-transcribe stop working for them.",
+      confirmLabel: "Clear",
+      role: .destructive,
+      onConfirm: clearRecordings
+    )
     .onChange(of: launchAtLogin) { _, enabled in
       guard launchAtLoginLoaded else { return }
       do {
@@ -87,8 +103,19 @@ struct SettingsPane: View {
       }
     }
     .onChange(of: contextRetentionDays) { _, _ in
-      Task.detached(priority: .background) {
-        DictationContextRetentionSweeper.sweep()
+      Task {
+        _ = await Task.detached(priority: .background) {
+          DictationContextRetentionSweeper.sweep()
+        }.value
+        await refreshStorageUsed()
+      }
+    }
+    .onChange(of: recordingRetentionDays) { _, _ in
+      Task {
+        _ = await Task.detached(priority: .background) {
+          RecordingRetentionSweeper.sweep()
+        }.value
+        await refreshStorageUsed()
       }
     }
   }
@@ -163,18 +190,45 @@ struct SettingsPane: View {
   private var historyCard: some View {
     AppSettingsCard(
       "History",
-      description:
-        "Screenshots and clipboard images captured for AI processing are deleted after this period. Transcripts are never deleted automatically."
+      description: "Transcripts are never deleted automatically."
     ) {
-      AppSettingsRow("Keep captured context") {
+      AppSettingsRow(
+        "Keep captured context",
+        detail: "Screenshots and clipboard images captured for AI processing."
+      ) {
         SCSelect(
           selection: retentionBinding($contextRetentionDays),
-          options: DictationContextRetentionOption.allCases.map {
+          options: RetentionPeriodOption.allCases.map {
             SCSelectOption(value: $0.rawValue, label: $0.label)
           }
         )
         .frame(width: 160)
       }
+
+      SCSeparator()
+
+      AppSettingsRow(
+        "Keep audio recordings",
+        detail: "Deleting audio removes playback and re-transcribe for older dictations."
+      ) {
+        SCSelect(
+          selection: retentionBinding($recordingRetentionDays),
+          options: RetentionPeriodOption.allCases.map {
+            SCSelectOption(value: $0.rawValue, label: $0.label)
+          }
+        )
+        .frame(width: 160)
+      }
+
+      SCSeparator()
+
+      AppSettingsInfoRow(label: "Storage used", value: storageUsedLabel)
+
+      Button("Clear recordings", systemImage: "trash") {
+        showsClearRecordingsConfirmation = true
+      }
+      .buttonStyle(.sc(.destructive, size: .sm))
+      .disabled(dictation.state != .idle)
     }
   }
 
@@ -202,5 +256,36 @@ struct SettingsPane: View {
         if let value { storage.wrappedValue = value }
       }
     )
+  }
+
+  private var storageUsedLabel: String {
+    ByteCountFormatter.string(fromByteCount: storageUsedBytes, countStyle: .file)
+  }
+
+  private func refreshStorageUsed() async {
+    storageUsedBytes = await Task.detached(priority: .utility) {
+      AgedFileSweeper.directorySizeBytes(RecordingRetentionSweeper.recordingsDirectory())
+        + AgedFileSweeper.directorySizeBytes(
+          DictationContextRetentionSweeper.attachmentsDirectory()
+        )
+    }.value
+  }
+
+  private func clearRecordings() {
+    guard dictation.state == .idle else { return }
+    Task {
+      await Task.detached(priority: .userInitiated) {
+        guard let directory = RecordingRetentionSweeper.recordingsDirectory() else { return }
+        let files =
+          (try? FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: nil
+          )) ?? []
+        for file in files {
+          try? FileManager.default.removeItem(at: file)
+        }
+      }.value
+      await refreshStorageUsed()
+    }
   }
 }

@@ -46,6 +46,7 @@ struct TimberVoxApp: App {
       .task {
         Task.detached(priority: .background) {
           DictationContextRetentionSweeper.sweep()
+          RecordingRetentionSweeper.sweep()
         }
       }
       .onReceive(

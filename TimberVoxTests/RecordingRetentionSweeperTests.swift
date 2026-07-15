@@ -3,9 +3,9 @@ import XCTest
 @testable import TimberVox
 
 /// Uses a real temporary directory with real file timestamps.
-final class ContextRetentionSweeperTests: XCTestCase {
+final class RecordingRetentionSweeperTests: XCTestCase {
   private let directory = FileManager.default.temporaryDirectory
-    .appendingPathComponent("context-retention-\(UUID().uuidString)", isDirectory: true)
+    .appendingPathComponent("recording-retention-\(UUID().uuidString)", isDirectory: true)
 
   override func setUpWithError() throws {
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -15,25 +15,22 @@ final class ContextRetentionSweeperTests: XCTestCase {
     try? FileManager.default.removeItem(at: directory)
   }
 
-  func testSweepRemovesOnlyFilesOlderThanRetention() throws {
-    let oldFile = try makeFile(named: "screen-old.png", ageInDays: 40)
-    let newFile = try makeFile(named: "screen-new.png", ageInDays: 5)
+  func testSweepRemovesOnlyAudioOlderThanRetention() throws {
+    let oldFile = try makeFile(named: "dictation-old.wav", ageInDays: 45)
+    let newFile = try makeFile(named: "dictation-new.wav", ageInDays: 2)
 
-    let removedCount = DictationContextRetentionSweeper.sweep(
-      retentionDays: 30,
-      directory: directory
-    )
+    let removedCount = RecordingRetentionSweeper.sweep(retentionDays: 30, directory: directory)
 
     XCTAssertEqual(removedCount, 1)
     XCTAssertFalse(FileManager.default.fileExists(atPath: oldFile.path))
     XCTAssertTrue(FileManager.default.fileExists(atPath: newFile.path))
   }
 
-  func testForeverRetentionRemovesNothing() throws {
-    let oldFile = try makeFile(named: "clipboard-old.png", ageInDays: 400)
+  func testDefaultForeverRetentionRemovesNothing() throws {
+    let oldFile = try makeFile(named: "dictation-ancient.wav", ageInDays: 500)
 
-    let removedCount = DictationContextRetentionSweeper.sweep(
-      retentionDays: RetentionPeriodOption.forever.rawValue,
+    let removedCount = RecordingRetentionSweeper.sweep(
+      retentionDays: RecordingRetentionPreference.defaultDays,
       directory: directory
     )
 
