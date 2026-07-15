@@ -40,201 +40,26 @@ struct SettingsPane: View {
 
   @State private var launchAtLogin = false
   @State private var launchAtLoginLoaded = false
+  @Environment(\.theme) private var theme
 
   var body: some View {
-    Form {
-      Section("Appearance") {
-        Picker("Theme", selection: $appearanceRaw) {
-          ForEach(AppearanceChoice.allCases) { choice in
-            Text(choice.label).tag(choice.rawValue)
-          }
-        }
-        .pickerStyle(.segmented)
+    ScrollView {
+      VStack(alignment: .leading, spacing: AppSpacing.lg) {
+        appearanceCard
+        indicatorCard
+        shortcutsCard
+        clipboardCard
+        localModelsCard
+        historyCard
+        applicationCard
+        SettingsPlansCard(billing: billing)
+        SettingsAccessGrid(permissions: permissions)
       }
-
-      Section {
-        LabeledContent {
-          KeyboardShortcuts.Recorder(for: .toggleDictation)
-        } label: {
-          Text("Toggle dictation")
-          Text("Starts and stops recording anywhere")
-        }
-        LabeledContent {
-          KeyboardShortcuts.Recorder(for: .cancelRecording)
-        } label: {
-          Text("Cancel recording")
-          Text("Discards the recording in progress")
-        }
-      } header: {
-        Text("Keyboard shortcuts")
-      } footer: {
-        Text("Cancel is only active while recording.")
-      }
-
-      Section {
-        Toggle("Keep transcript on clipboard", isOn: $keepTranscriptOnClipboardAfterPaste)
-      } header: {
-        Text("Clipboard")
-      } footer: {
-        Text(
-          keepTranscriptOnClipboardAfterPaste
-            ? "After auto-paste, the transcript stays on your clipboard."
-            : "After auto-paste, TimberVox restores your previous clipboard."
-        )
-      }
-
-      Section("Recording indicator") {
-        Picker("Style", selection: $indicatorStyleRaw) {
-          ForEach(IndicatorStyle.allCases) { style in
-            Text(style.label).tag(style.rawValue)
-          }
-        }
-        .pickerStyle(.segmented)
-      }
-
-      Section {
-        Picker("Unload last-used model after", selection: $localModelRetentionMinutes) {
-          ForEach(FluidAudioModelRetentionOption.allCases) { option in
-            Text(option.label).tag(option.rawValue)
-          }
-        }
-      } header: {
-        Text("Local models")
-      } footer: {
-        Text(
-          "TimberVox keeps only the most recently requested local batch or realtime model in memory."
-        )
-      }
-
-      Section {
-        Picker("Keep captured context", selection: $contextRetentionDays) {
-          ForEach(DictationContextRetentionOption.allCases) { option in
-            Text(option.label).tag(option.rawValue)
-          }
-        }
-      } header: {
-        Text("History")
-      } footer: {
-        Text(
-          "Screenshots and clipboard images captured for AI processing are deleted after this period. Transcripts are never deleted automatically."
-        )
-      }
-
-      Section("Application") {
-        Toggle("Launch at login", isOn: $launchAtLogin)
-          .disabled(!launchAtLoginLoaded)
-          .onChange(of: launchAtLogin) { _, enabled in
-            guard launchAtLoginLoaded else { return }
-            do {
-              if enabled {
-                try SMAppService.mainApp.register()
-              } else {
-                try SMAppService.mainApp.unregister()
-              }
-            } catch {
-              launchAtLogin = SMAppService.mainApp.status == .enabled
-            }
-          }
-      }
-
-      Section {
-        LabeledContent {
-          if billing.cloudAccessIsActive {
-            Label("Active", systemImage: "checkmark.circle.fill")
-              .foregroundStyle(.green)
-          } else {
-            Button("Subscribe") {
-              Task { await billing.purchaseCloudAccess() }
-            }
-            .disabled(!billing.isConfigured || billing.isLoading)
-          }
-        } label: {
-          Text("Cloud Access")
-          Text(billing.cloudPrice)
-        }
-
-        LabeledContent {
-          if billing.localProIsActive {
-            Label("Active", systemImage: "checkmark.circle.fill")
-              .foregroundStyle(.green)
-          } else {
-            Text("Coming soon")
-              .foregroundStyle(.secondary)
-          }
-        } label: {
-          Text("Local Pro")
-          Text(billing.localProPrice)
-        }
-
-        Button("Restore Purchases") {
-          Task { await billing.restorePurchases() }
-        }
-        .disabled(!billing.isConfigured || billing.isLoading)
-
-        if let error = billing.lastError {
-          Text(error)
-            .foregroundStyle(.red)
-        }
-      } header: {
-        Text("Plans")
-      } footer: {
-        Text(
-          "Cloud Access enables hosted transcription and text processing. Local Pro will unlock offline features when they ship."
-        )
-      }
-
-      Section {
-        LabeledContent("Microphone") {
-          if permissions.microphoneStatus.isGranted {
-            Label("Granted", systemImage: "checkmark.circle.fill")
-              .foregroundStyle(.green)
-          } else {
-            Button("Grant") {
-              Task { await permissions.grantMicrophone() }
-            }
-            .disabled(permissions.isRequestingMicrophone)
-          }
-        }
-        LabeledContent("Accessibility") {
-          if permissions.accessibilityStatus.isGranted {
-            Label("Granted", systemImage: "checkmark.circle.fill")
-              .foregroundStyle(.green)
-          } else {
-            Button("Grant") {
-              permissions.grantAccessibility()
-            }
-          }
-        }
-        LabeledContent("Screen capture") {
-          if permissions.screenCaptureStatus.isGranted {
-            Label("Granted", systemImage: "checkmark.circle.fill")
-              .foregroundStyle(.green)
-          } else {
-            Button("Grant") {
-              permissions.grantScreenCapture()
-            }
-          }
-        }
-        LabeledContent("System audio") {
-          if permissions.systemAudioStatus.isGranted {
-            Label("Confirmed", systemImage: "checkmark.circle.fill")
-              .foregroundStyle(.green)
-          } else {
-            Button("Open Settings") {
-              permissions.manageSystemAudioPermission()
-            }
-          }
-        }
-      } header: {
-        Text("Permissions")
-      } footer: {
-        Text(
-          "Screen capture and system audio are optional and independent. System audio shows Confirmed after a successful capture because macOS does not provide a preflight status API for Core Audio taps."
-        )
-      }
+      .appContentColumn(topInset: AppSpacing.lg, bottomInset: AppSpacing.xl)
     }
-    .formStyle(.grouped)
-    .navigationTitle("Settings")
+    .scrollIndicators(.hidden)
+    .foregroundStyle(theme.foreground)
+    .background(theme.background)
     .onAppear {
       permissions.refresh()
     }
@@ -242,6 +67,18 @@ struct SettingsPane: View {
       // Checking launchd status is a blocking call out of process; keep it off the main thread.
       launchAtLogin = await Task.detached { SMAppService.mainApp.status == .enabled }.value
       launchAtLoginLoaded = true
+    }
+    .onChange(of: launchAtLogin) { _, enabled in
+      guard launchAtLoginLoaded else { return }
+      do {
+        if enabled {
+          try SMAppService.mainApp.register()
+        } else {
+          try SMAppService.mainApp.unregister()
+        }
+      } catch {
+        launchAtLogin = SMAppService.mainApp.status == .enabled
+      }
     }
     .onChange(of: localModelRetentionMinutes) { _, _ in
       Task {
@@ -254,5 +91,116 @@ struct SettingsPane: View {
         DictationContextRetentionSweeper.sweep()
       }
     }
+  }
+
+  private var appearanceCard: some View {
+    AppSettingsCard("Appearance") {
+      AppSettingsRow("Theme") {
+        SCToggleGroup(
+          selection: appearanceBinding,
+          items: AppearanceChoice.allCases.map {
+            SCToggleGroupItem(value: $0, label: $0.label)
+          }
+        )
+      }
+    }
+  }
+
+  private var indicatorCard: some View {
+    AppSettingsCard(
+      "Recording indicator",
+      description: "How TimberVox shows recording and processing on screen."
+    ) {
+      SettingsIndicatorPreview(styleRaw: $indicatorStyleRaw)
+    }
+  }
+
+  private var shortcutsCard: some View {
+    AppSettingsCard("Keyboard shortcuts", description: "Cancel is only active while recording.") {
+      AppSettingsRow("Toggle dictation", detail: "Starts and stops recording anywhere") {
+        KeyboardShortcuts.Recorder(for: .toggleDictation)
+      }
+
+      SCSeparator()
+
+      AppSettingsRow("Cancel recording", detail: "Discards the recording in progress") {
+        KeyboardShortcuts.Recorder(for: .cancelRecording)
+      }
+    }
+  }
+
+  private var clipboardCard: some View {
+    AppSettingsCard("Clipboard") {
+      AppSettingsRow(
+        "Keep transcript on clipboard",
+        detail: keepTranscriptOnClipboardAfterPaste
+          ? "After auto-paste, the transcript stays on your clipboard."
+          : "After auto-paste, TimberVox restores your previous clipboard."
+      ) {
+        SCSwitch("Keep transcript on clipboard", isOn: $keepTranscriptOnClipboardAfterPaste)
+      }
+    }
+  }
+
+  private var localModelsCard: some View {
+    AppSettingsCard(
+      "Local models",
+      description:
+        "TimberVox keeps only the most recently requested local batch or realtime model in memory."
+    ) {
+      AppSettingsRow("Unload last-used model after") {
+        SCSelect(
+          selection: retentionBinding($localModelRetentionMinutes),
+          options: FluidAudioModelRetentionOption.allCases.map {
+            SCSelectOption(value: $0.rawValue, label: $0.label)
+          }
+        )
+        .frame(width: 160)
+      }
+    }
+  }
+
+  private var historyCard: some View {
+    AppSettingsCard(
+      "History",
+      description:
+        "Screenshots and clipboard images captured for AI processing are deleted after this period. Transcripts are never deleted automatically."
+    ) {
+      AppSettingsRow("Keep captured context") {
+        SCSelect(
+          selection: retentionBinding($contextRetentionDays),
+          options: DictationContextRetentionOption.allCases.map {
+            SCSelectOption(value: $0.rawValue, label: $0.label)
+          }
+        )
+        .frame(width: 160)
+      }
+    }
+  }
+
+  private var applicationCard: some View {
+    AppSettingsCard("Application") {
+      AppSettingsRow("Launch at login") {
+        SCSwitch("Launch at login", isOn: $launchAtLogin, isDisabled: !launchAtLoginLoaded)
+      }
+    }
+  }
+
+  private var appearanceBinding: Binding<AppearanceChoice?> {
+    Binding(
+      get: { AppearanceChoice(rawValue: appearanceRaw) ?? .automatic },
+      set: { choice in
+        if let choice { appearanceRaw = choice.rawValue }
+      }
+    )
+  }
+
+  private func retentionBinding(_ storage: Binding<Int>) -> Binding<Int?> {
+    Binding(
+      get: { storage.wrappedValue },
+      set: { value in
+        if let value { storage.wrappedValue = value }
+      }
+    )
   }
 }

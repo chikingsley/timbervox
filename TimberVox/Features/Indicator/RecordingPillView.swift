@@ -19,6 +19,14 @@ enum IndicatorStyle: String, CaseIterable, Identifiable {
   }
 }
 
+/// Shared by the live pill and the Settings style previews.
+enum RecordingPillPalette {
+  static let recordingRed = Color(red: 0.88, green: 0.27, blue: 0.24)
+  static let processingBlue = Color(red: 0.25, green: 0.54, blue: 0.88)
+  static let pillSurface = Color(red: 0.04, green: 0.04, blue: 0.045)
+  static let compactBlue = Color(nsColor: .systemBlue)
+}
+
 struct RecordingPillView: View {
   let dictation: DictationController
   @AppStorage("indicatorStyle") private var styleRaw = IndicatorStyle.defaultValue.rawValue
@@ -26,11 +34,6 @@ struct RecordingPillView: View {
   private var style: IndicatorStyle {
     IndicatorStyle(rawValue: styleRaw) ?? .defaultValue
   }
-
-  private static let recordingRed = Color(red: 0.88, green: 0.27, blue: 0.24)
-  private static let processingBlue = Color(red: 0.25, green: 0.54, blue: 0.88)
-  private static let pillSurface = Color(red: 0.04, green: 0.04, blue: 0.045)
-  private static let compactBlue = Color(nsColor: .systemBlue)
 
   var body: some View {
     VStack {
@@ -58,7 +61,7 @@ struct RecordingPillView: View {
   private var pill: some View {
     ZStack {
       RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        .fill(phase != .idle && style == .compact ? Self.compactBlue : Self.pillSurface)
+        .fill(phase != .idle && style == .compact ? RecordingPillPalette.compactBlue : RecordingPillPalette.pillSurface)
         .shadow(color: .black.opacity(0.45), radius: 7, y: 2)
 
       switch phase {
@@ -106,7 +109,7 @@ struct RecordingPillView: View {
     } else {
       SpectrumBars(
         bars: dictation.spectrum.bars,
-        color: Self.recordingRed,
+        color: RecordingPillPalette.recordingRed,
         barWidth: style == .large ? 5 : 3,
         barSpacing: style == .large ? 3.5 : 2.5,
         maxBarHeight: style == .large ? 38 : 22,
@@ -120,7 +123,7 @@ struct RecordingPillView: View {
   private var transcribingContent: some View {
     HStack(spacing: 8) {
       Circle()
-        .fill(style == .compact ? Color.white : Self.processingBlue)
+        .fill(style == .compact ? Color.white : RecordingPillPalette.processingBlue)
         .frame(width: 8, height: 8)
       if showsProcessingText {
         Text(dictation.processingText)
@@ -130,14 +133,14 @@ struct RecordingPillView: View {
           .truncationMode(.head)
           .frame(maxWidth: .infinity, alignment: .leading)
       } else {
-        PulsingDots(color: style == .compact ? Color.white : Self.processingBlue)
+        PulsingDots(color: style == .compact ? Color.white : RecordingPillPalette.processingBlue)
       }
     }
     .padding(.horizontal, 14)
   }
 }
 
-private struct SpectrumBars: View {
+struct SpectrumBars: View {
   let bars: [Float]
   let color: Color
   var barWidth: CGFloat = 3
@@ -170,7 +173,7 @@ private struct SpectrumBars: View {
   }
 }
 
-private struct CompactSpectrumBars: View {
+struct CompactSpectrumBars: View {
   let bars: [Float]
 
   private var compactBars: [CGFloat] {
@@ -199,7 +202,7 @@ private struct CompactSpectrumBars: View {
   }
 }
 
-private struct PulsingDots: View {
+struct PulsingDots: View {
   let color: Color
   @State private var animating = false
 

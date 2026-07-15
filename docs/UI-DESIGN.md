@@ -354,8 +354,10 @@ keyboard shortcuts.
 - A subtle tonal boundary between a sidebar/content list and detail is normal macOS
   material behavior. Add explicit shadows only when they communicate elevation.
 - Selected state, active state, status, and failure state must not rely on color alone.
-- Avoid card grids for ordinary settings and object rows. Use stock Form, List, Table,
-  Section, LabeledContent, toolbar, inspector, and ContentUnavailableView patterns first.
+- Settings and object rows follow the ui-prototype's grouped-card layout built from the
+  shared SwiftCN composites (`AppSettingsCard`/`AppSettingsRow`), matching Home, History,
+  and Modes. Stock Form/List/Table remain the fallback for surfaces the prototype does
+  not cover.
 - The recording indicator is intentionally custom but remains visually and structurally
   isolated from the main-window design system.
 
