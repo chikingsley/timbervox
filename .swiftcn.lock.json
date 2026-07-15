@@ -26,6 +26,16 @@
         }
       ]
     },
+    "audio-level-provider" : {
+      "files" : [
+        {
+          "installedHash" : "694761443b8e9364895d31fe145d0da2e64e665cf432defbc6e5eadf0608098f",
+          "source" : "Sources/Swiftcn/Audio/AudioLevelProvider.swift",
+          "sourceHash" : "694761443b8e9364895d31fe145d0da2e64e665cf432defbc6e5eadf0608098f",
+          "target" : "AudioLevelProvider.swift"
+        }
+      ]
+    },
     "badge" : {
       "files" : [
         {
@@ -33,6 +43,16 @@
           "source" : "Sources/Swiftcn/Components/Badge.swift",
           "sourceHash" : "1ba86b45e559f718bad00b2c511c809820c1690a1189891d07d049614b8b53a0",
           "target" : "Badge.swift"
+        }
+      ]
+    },
+    "bar-visualizer" : {
+      "files" : [
+        {
+          "installedHash" : "6a378a500be8c65b10258e0b0ac0162b4abb1df8a6a3f7c4555e9fb0726eb1b8",
+          "source" : "Sources/Swiftcn/Audio/BarVisualizer.swift",
+          "sourceHash" : "6a378a500be8c65b10258e0b0ac0162b4abb1df8a6a3f7c4555e9fb0726eb1b8",
+          "target" : "BarVisualizer.swift"
         }
       ]
     },
