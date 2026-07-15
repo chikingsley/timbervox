@@ -1,4 +1,3 @@
-import Inject
 import KeyboardShortcuts
 import ServiceManagement
 import SwiftUI
@@ -31,14 +30,14 @@ struct SettingsPane: View {
   let permissions: PermissionCoordinator
   @AppStorage("appearance") private var appearanceRaw = AppearanceChoice.automatic.rawValue
   @AppStorage("indicatorStyle") private var indicatorStyleRaw = IndicatorStyle.defaultValue.rawValue
-  @AppStorage(ClipboardPreference.keepTranscriptOnClipboardAfterPasteKey)
-  private var keepTranscriptOnClipboardAfterPaste = ClipboardPreference
+  @AppStorage(ClipboardRetentionPreference.keepTranscriptOnClipboardAfterPasteKey)
+  private var keepTranscriptOnClipboardAfterPaste = ClipboardRetentionPreference
     .defaultKeepTranscriptOnClipboardAfterPaste
-  @AppStorage(LocalModelRetentionPreference.key)
-  private var localModelRetentionMinutes = LocalModelRetentionPreference.defaultMinutes
+  @AppStorage(FluidAudioModelRetentionPreference.key)
+  private var localModelRetentionMinutes = FluidAudioModelRetentionPreference.defaultMinutes
 
-  @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
-  @ObserveInjection var injection
+  @State private var launchAtLogin = false
+  @State private var launchAtLoginLoaded = false
 
   var body: some View {
     Form {
@@ -93,7 +92,7 @@ struct SettingsPane: View {
 
       Section {
         Picker("Unload last-used model after", selection: $localModelRetentionMinutes) {
-          ForEach(LocalModelRetentionOption.allCases) { option in
+          ForEach(FluidAudioModelRetentionOption.allCases) { option in
             Text(option.label).tag(option.rawValue)
           }
         }
@@ -107,7 +106,9 @@ struct SettingsPane: View {
 
       Section("Application") {
         Toggle("Launch at login", isOn: $launchAtLogin)
+          .disabled(!launchAtLoginLoaded)
           .onChange(of: launchAtLogin) { _, enabled in
+            guard launchAtLoginLoaded else { return }
             do {
               if enabled {
                 try SMAppService.mainApp.register()
@@ -220,14 +221,17 @@ struct SettingsPane: View {
     .navigationTitle("Settings")
     .onAppear {
       permissions.refresh()
-      launchAtLogin = SMAppService.mainApp.status == .enabled
+    }
+    .task {
+      // Checking launchd status is a blocking call out of process; keep it off the main thread.
+      launchAtLogin = await Task.detached { SMAppService.mainApp.status == .enabled }.value
+      launchAtLoginLoaded = true
     }
     .onChange(of: localModelRetentionMinutes) { _, _ in
       Task {
-        await LocalBatchTranscriptionClient.shared.retentionPreferenceDidChange()
-        await LocalRealtimeTranscriptionSession.shared.retentionPreferenceDidChange()
+        await FluidAudioBatchTranscriber.shared.retentionPreferenceDidChange()
+        await FluidAudioRealtimeTranscriptionSession.shared.retentionPreferenceDidChange()
       }
     }
-    .enableInjection()
   }
 }

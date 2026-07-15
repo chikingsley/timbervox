@@ -1,57 +1,39 @@
-import AVFoundation
-import Inject
+import GRDB
 import SwiftUI
-import Swiftcn
-
-struct RecordingItem: Identifiable, Sendable {
-  let url: URL
-  let date: Date
-  let duration: TimeInterval
-
-  var id: URL { url }
-}
 
 struct HomePane: View {
   let dictation: DictationController
-  @State private var recordings: [RecordingItem] = []
+  @Binding var activeTab: ActiveTab?
+  @Binding var selectedHistoryID: Int64?
+  @State private var overview = HomeDictationOverview.empty
+  @State private var historyError: String?
   @State private var axTrusted = true
-  @ObserveInjection var injection
+  @Environment(\.theme) private var theme
 
   var body: some View {
     ScrollView {
-      VStack(alignment: .leading, spacing: 16) {
-        dictationCard
+      VStack(alignment: .leading, spacing: AppSpacing.lg) {
+        statistics
+        quickActions
 
-        if !axTrusted {
-          SCAlert(icon: "exclamationmark.triangle") {
-            SCAlertTitle("Auto-paste is off")
-            SCAlertDescription(
-              "Grant Accessibility so your words land back in the app you're dictating into."
-            )
-            Button("Grant Access") {
-              AccessibilityPermission.requestPrompt()
-            }
-            .buttonStyle(.sc(.outline, size: .sm))
-          }
+        if let notice = currentNotice {
+          HomeNotice(notice: notice)
         }
 
-        if !dictation.liveTranscript.isEmpty || dictation.state == .transcribing
-          || dictation.lastTranscript != nil
-        {
-          lastDictationCard
-        }
-
-        recentRecordingsCard
+        HomeRecentActivityCard(
+          records: overview.recentRecords,
+          errorMessage: historyError,
+          onViewHistory: { openHistory() },
+          onSelectRecord: { openHistory(selectedID: $0) }
+        )
       }
-      .frame(maxWidth: 860)
-      .padding(24)
-      .frame(maxWidth: .infinity)
+      .appContentColumn(topInset: AppSpacing.lg, bottomInset: AppSpacing.xl)
     }
-    .background(Color(nsColor: .windowBackgroundColor))
-    .theme(.default)
-    .navigationTitle("Home")
-    .task(id: dictation.lastRecordingURL) {
-      recordings = Self.loadRecordings()
+    .scrollIndicators(.hidden)
+    .foregroundStyle(theme.foreground)
+    .background(theme.background)
+    .task {
+      await observeOverview()
     }
     .task {
       axTrusted = AccessibilityPermission.isTrusted
@@ -60,191 +42,129 @@ struct HomePane: View {
         axTrusted = AccessibilityPermission.isTrusted
       }
     }
-    .enableInjection()
   }
 
-  private var dictationCard: some View {
-    SCCard {
-      HStack(alignment: .center, spacing: 20) {
-        VStack(alignment: .leading, spacing: 6) {
-          SCCardTitle(dictationTitle)
-          SCCardDescription(dictationDescription)
-
-          if case .recording(let started) = dictation.state {
-            TimelineView(.periodic(from: started, by: 1)) { context in
-              Text(Self.formatDuration(context.date.timeIntervalSince(started)))
-                .font(.title2.weight(.semibold))
-                .monospacedDigit()
-            }
-          }
-        }
-
-        Spacer(minLength: 24)
-
-        Button {
-          dictation.toggle()
-        } label: {
-          Label(dictationButtonTitle, systemImage: dictationButtonIcon)
-        }
-        .buttonStyle(.sc(dictationButtonVariant, size: .lg))
-        .disabled(dictation.state == .transcribing)
-      }
-
-      if let message = dictation.statusMessage {
-        SCAlert(
-          icon: "exclamationmark.circle",
-          title: "Dictation issue",
-          description: message,
-          variant: .destructive
-        )
-      }
-    }
-  }
-
-  private var lastDictationCard: some View {
-    SCCard {
-      SCCardHeader {
-        SCCardTitle("Last dictation")
-        SCCardDescription("The latest text TimberVox heard and delivered.")
-      }
+  private var statistics: some View {
+    SCCard(size: .sm) {
       SCCardContent {
-        if dictation.state == .transcribing {
-          HStack(spacing: 8) {
-            ProgressView()
-              .controlSize(.small)
-            Text("Transcribing…")
-              .foregroundStyle(.secondary)
-          }
-        } else if !dictation.liveTranscript.isEmpty {
-          VStack(alignment: .leading, spacing: 6) {
-            Text("Live")
-              .font(.caption.weight(.semibold))
-              .foregroundStyle(.tint)
-            Text(dictation.liveTranscript)
-              .textSelection(.enabled)
-          }
-        } else if let transcript = dictation.lastTranscript {
-          Text(transcript)
-            .textSelection(.enabled)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-      }
-      SCCardFooter {
-        if let note = dictation.lastDeliveryNote {
-          Text(note)
-            .font(.caption)
-            .foregroundStyle(.secondary)
-        }
-        Spacer()
-        Button("Copy", systemImage: "doc.on.doc") {
-          dictation.copyLastTranscript()
-        }
-        .buttonStyle(.sc(.outline, size: .sm))
-      }
-    }
-  }
-
-  private var recentRecordingsCard: some View {
-    SCCard {
-      SCCardHeader {
-        SCCardTitle("Recent recordings")
-        SCCardDescription("Audio retained from your latest dictations.")
-      }
-      SCCardContent {
-        if recordings.isEmpty {
-          Text("Nothing yet — press ⌥Space and say something.")
-            .foregroundStyle(.secondary)
-        } else {
-          VStack(spacing: 0) {
-            ForEach(Array(recordings.enumerated()), id: \.element.id) { index, item in
-              if index > 0 {
-                Divider()
-              }
-              Button {
-                NSWorkspace.shared.activateFileViewerSelecting([item.url])
-              } label: {
-                SCItem(
-                  item.url.deletingPathExtension().lastPathComponent,
-                  description: item.date.formatted(date: .abbreviated, time: .shortened)
-                ) {
-                  Image(systemName: "waveform")
-                } trailing: {
-                  Text(Self.formatDuration(item.duration))
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-                }
-              }
-              .buttonStyle(.plain)
-              .help("Reveal in Finder")
-            }
-          }
+        HStack(spacing: 16) {
+          HomeStatistic(value: "\(averageWordsPerMinute) WPM", label: "Average speed")
+          HomeStatistic(value: "\(overview.totalWords)", label: "Words")
+          HomeStatistic(value: "\(overview.dictationCount)", label: "Dictations")
+          HomeStatistic(
+            value: Self.formatCompactDuration(overview.totalDurationSeconds),
+            label: "Saved all time",
+            showsDivider: false
+          )
         }
       }
     }
   }
 
-  private var dictationTitle: String {
+  private var quickActions: some View {
+    LazyVGrid(
+      columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4),
+      spacing: 8
+    ) {
+      HomeActionTile(
+        title: dictation.isRecording ? "Stop recording" : "Start recording",
+        icon: dictation.isRecording ? "stop.fill" : "mic",
+        shortcut: "⌥ Space",
+        action: dictation.toggle
+      )
+
+      HomeActionTile(title: "View history", icon: "clock") {
+        openHistory()
+      }
+
+      HomeActionTile(title: "Choose a mode", icon: "slider.horizontal.3") {
+        activeTab = .modes
+      }
+
+      HomeActionTile(title: "Transcription models", icon: "waveform") {
+        activeTab = .modes
+      }
+
+      HomeActionTile(
+        title: "Copy latest",
+        icon: "doc.on.doc",
+        isEnabled: dictation.lastTranscript != nil,
+        action: dictation.copyLastTranscript
+      )
+
+      HomeActionTile(title: "Accessibility", icon: "accessibility") {
+        AccessibilityPermission.requestPrompt()
+      }
+
+      HomeActionTile(title: "Keyboard shortcuts", icon: "keyboard") {
+        activeTab = .settings
+      }
+
+      HomeActionTile(title: "Account & billing", icon: "person.crop.circle") {
+        activeTab = .settings
+      }
+    }
+  }
+
+  private var currentNotice: HomeNotice.Content? {
+    if !axTrusted {
+      return .init(
+        icon: "exclamationmark.triangle",
+        title: "Auto-paste is off",
+        message: "Grant Accessibility so your words return to the app you are dictating into."
+      )
+    }
+
     switch dictation.state {
-    case .idle: "Ready to dictate"
-    case .recording: "Listening…"
-    case .transcribing: "Transcribing…"
+    case .recording(let started):
+      return .init(
+        icon: "waveform",
+        title: "Listening",
+        message: "Recording started \(started.formatted(date: .omitted, time: .shortened)). Press ⌥Space to stop."
+      )
+    case .transcribing:
+      return .init(
+        icon: "ellipsis",
+        title: "Transcribing",
+        message: "TimberVox is preparing and delivering your text."
+      )
+    case .idle:
+      return nil
     }
   }
 
-  private var dictationDescription: String {
-    switch dictation.state {
-    case .idle: "Press ⌥Space in any app, or start here. Your words return to where you were working."
-    case .recording: "Press ⌥Space to stop or Escape to cancel."
-    case .transcribing: "TimberVox is preparing and delivering your text."
-    }
+  private func openHistory(selectedID: Int64? = nil) {
+    NavigationPerformance.beginHomeToHistory()
+    selectedHistoryID = selectedID
+    activeTab = .history
   }
 
-  private var dictationButtonTitle: String {
-    switch dictation.state {
-    case .idle: "Start Dictation"
-    case .recording: "Stop Dictation"
-    case .transcribing: "Transcribing"
-    }
-  }
-
-  private var dictationButtonIcon: String {
-    dictation.isRecording ? "stop.fill" : "mic.fill"
-  }
-
-  private var dictationButtonVariant: SCButtonVariant {
-    dictation.isRecording ? .destructive : .default
+  private var averageWordsPerMinute: Int {
+    guard overview.totalDurationSeconds > 0 else { return 0 }
+    return Int((Double(overview.totalWords) / (overview.totalDurationSeconds / 60)).rounded())
   }
 
   static func formatDuration(_ seconds: TimeInterval) -> String {
     Duration.seconds(seconds).formatted(.time(pattern: .minuteSecond))
   }
 
-  static func loadRecordings() -> [RecordingItem] {
-    let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-      .appendingPathComponent("TimberVox/Recordings")
-    guard
-      let urls = try? FileManager.default.contentsOfDirectory(
-        at: base,
-        includingPropertiesForKeys: [.contentModificationDateKey],
-        options: .skipsHiddenFiles
-      )
-    else {
-      return []
-    }
+  private static func formatCompactDuration(_ seconds: TimeInterval) -> String {
+    let minutes = Int(seconds / 60)
+    if minutes < 60 { return "\(minutes) minutes" }
+    let hours = minutes / 60
+    let remainder = minutes % 60
+    return remainder == 0 ? "\(hours) hours" : "\(hours)h \(remainder)m"
+  }
 
-    return
-      urls
-      .filter { $0.pathExtension == "wav" }
-      .compactMap { url -> RecordingItem? in
-        guard let file = try? AVAudioFile(forReading: url) else { return nil }
-        let date =
-          (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)
-          ?? .distantPast
-        let duration = Double(file.length) / file.fileFormat.sampleRate
-        return RecordingItem(url: url, date: date, duration: duration)
+  private func observeOverview() async {
+    do {
+      for try await value in try TranscriptStore.shared.observeHomeOverview() {
+        overview = value
+        historyError = nil
       }
-      .sorted { $0.date > $1.date }
-      .prefix(10)
-      .map { $0 }
+    } catch {
+      overview = .empty
+      historyError = error.localizedDescription
+    }
   }
 }

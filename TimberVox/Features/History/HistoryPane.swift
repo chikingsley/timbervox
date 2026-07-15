@@ -1,253 +1,350 @@
-import AVFoundation
 import AppKit
-import Inject
+import GRDB
 import SwiftUI
 
 struct HistoryPane: View {
-  let dictation: DictationController
+  @Binding var requestedSelectionID: Int64?
   @State private var query = ""
-  @State private var modelFilter: String?
+  @State private var pageLimit = HistoryPresentationPolicy.pageSize
+  @State private var detailSearchQuery = ""
   @State private var items: [TranscriptRecord] = []
-  @State private var selectedID: Int64?
-  @State private var showDetails = false
-  @State private var justCopied = false
+  @State private var totalItemCount = 0
+  @State private var expandedID: Int64?
+  @State private var scrollTargetID: Int64?
+  @State private var detailID: Int64?
+  @State private var detailsID: Int64?
+  @State private var pendingDeleteID: Int64?
+  @State private var transcriptModes: [Int64: HistoryTranscriptViewMode] = [:]
+  @State private var detailPlayer = HistoryAudioPlayer()
   @State private var isRerunning = false
   @State private var rerunError: String?
   @State private var transcriptionCatalog = TranscriptionModelCatalogStore.shared
-  @ObserveInjection var injection
-
-  private var filtered: [TranscriptRecord] {
-    guard let modelFilter else { return items }
-    return items.filter { $0.model == modelFilter }
-  }
-
+  @Environment(\.theme) private var theme
   private var dayGroups: [(day: Date, records: [TranscriptRecord])] {
-    let calendar = Calendar.current
-    let groups = Dictionary(grouping: filtered) { calendar.startOfDay(for: $0.createdAt) }
-    return groups.keys.sorted(by: >).map { (day: $0, records: groups[$0] ?? []) }
-  }
-
-  private var selected: TranscriptRecord? {
-    filtered.first { $0.id == selectedID }
-  }
-
-  private var selectedAudioURL: URL? {
-    guard let path = selected?.audioPath, FileManager.default.fileExists(atPath: path) else {
-      return nil
+    let groups = Dictionary(grouping: items) {
+      Calendar.current.startOfDay(for: $0.createdAt)
     }
-    return URL(fileURLWithPath: path)
+    return groups.keys.sorted(by: >).map { day in
+      (day: day, records: groups[day] ?? [])
+    }
   }
-
+  private var detailRecord: TranscriptRecord? {
+    items.first { $0.id == detailID }
+  }
+  private var detailsRecord: TranscriptRecord? {
+    items.first { $0.id == detailsID }
+  }
   var body: some View {
-    HStack(spacing: 0) {
-      VStack(spacing: 0) {
-        HStack(spacing: 4) {
-          Image(systemName: "magnifyingglass")
-            .foregroundStyle(.secondary)
-          TextField("Search", text: $query)
-            .textFieldStyle(.plain)
+    VStack(spacing: 0) {
+      if let detailRecord {
+        AppSearchHeader(
+          placeholder: "Search transcript",
+          query: $detailSearchQuery
+        ) {
+          Button {
+            detailID = nil
+            detailSearchQuery = ""
+            rerunError = nil
+          } label: {
+            Image(systemName: "chevron.left")
+              .font(.system(size: 13, weight: .semibold))
+          }
+          .buttonStyle(.sc(.ghost, size: .iconSM))
+          .accessibilityLabel("Back to history")
         }
-        .padding(.horizontal, 7)
-        .padding(.vertical, 4)
-        .background(RoundedRectangle(cornerRadius: 7).fill(.quaternary.opacity(0.6)))
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        detail(record: detailRecord)
+      } else {
+        AppSearchHeader(placeholder: "Search history", query: $query)
+        historyList
+      }
+    }
+    .scSheet(isPresented: detailsSheetBinding) {
+      if let detailsRecord {
+        HistoryDetailsSheet(
+          record: detailsRecord,
+          modelDisplayName: transcriptionCatalog.displayName(forRouteModel: detailsRecord.model)
+        ) {
+          detailsID = nil
+        }
+      }
+    }
+    .foregroundStyle(theme.foreground)
+    .background(theme.background)
+    .accessibilityIdentifier("history.content")
+    .scAlertDialog(
+      isPresented: deleteAlertBinding,
+      title: "Delete recording?",
+      message: "The transcript will be removed from History. Its audio file is not deleted.",
+      confirmLabel: "Delete",
+      role: .destructive,
+      onConfirm: deletePendingRecord
+    )
+    .task(id: reloadKey) {
+      if !trimmedQuery.isEmpty {
+        try? await Task.sleep(for: .milliseconds(150))
+        guard !Task.isCancelled else { return }
+      }
+      await observePage()
+    }
+    .onChange(of: query) { _, _ in
+      pageLimit = HistoryPresentationPolicy.pageSize
+    }
+    .task { await transcriptionCatalog.refreshIfNeeded() }
+    .onDisappear(perform: resetTransientState)
+  }
+}
+private extension HistoryPane {
+  private var historyList: some View {
+    ScrollViewReader { proxy in
+      ScrollView {
+        LazyVStack(alignment: .leading, spacing: 18) {
+          if items.isEmpty {
+            SCEmpty(
+              query.isEmpty ? "No dictations yet" : "No matches",
+              systemImage: query.isEmpty ? "waveform" : "magnifyingglass",
+              description: query.isEmpty
+                ? "Dictations you make are saved here."
+                : "Try a different search."
+            )
+            .frame(maxWidth: .infinity, minHeight: 280)
+          } else {
+            ForEach(dayGroups, id: \.day) { group in
+              VStack(alignment: .leading, spacing: 8) {
+                Text(HistoryPresentationPolicy.dayLabel(group.day))
+                  .font(.system(size: 12, weight: .medium))
+                  .foregroundStyle(theme.mutedForeground)
+                  .padding(.horizontal, 4)
 
-        Divider()
-
-        List(selection: $selectedID) {
-          ForEach(dayGroups, id: \.day) { group in
-            Section(Self.dayLabel(group.day)) {
-              ForEach(group.records) { item in
-                VStack(alignment: .leading, spacing: 3) {
-                  Text(item.text)
-                    .lineLimit(2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                  HStack(spacing: 8) {
-                    Text(item.createdAt.formatted(date: .omitted, time: .shortened))
-                    Text(HomePane.formatDuration(item.durationSeconds))
-                      .monospacedDigit()
+                LazyVStack(spacing: 8) {
+                  ForEach(group.records) { record in
+                    card(for: record)
                   }
-                  .font(.caption)
-                  .foregroundStyle(.secondary)
-                }
-                .tag(item.id ?? -1)
-                .contextMenu {
-                  Button("Copy") { Self.copy(item.text) }
-                  Button("Delete", role: .destructive) { delete(item) }
                 }
               }
             }
+
+            historyListFooter
           }
         }
-        .listStyle(.inset)
-        .overlay {
-          if filtered.isEmpty {
-            ContentUnavailableView(
-              query.isEmpty ? "No dictations yet" : "No matches",
-              systemImage: "clock",
-              description: Text(
-                query.isEmpty ? "Dictations you make are saved here." : "Try a different search.")
-            )
-          }
-        }
+        .appContentColumn(topInset: AppSpacing.lg, bottomInset: AppSpacing.xl)
       }
-      .frame(width: 260)
-
-      Divider()
-
-      Group {
-        if let selected {
-          TranscriptDetailView(
-            item: selected,
-            isRerunning: isRerunning,
-            rerunError: rerunError
-          )
-          .id(selected.id)
-        } else {
-          ContentUnavailableView(
-            "Select a dictation",
-            systemImage: "text.quote",
-            description: Text("The transcript and playback show here.")
-          )
+      .scrollIndicators(.hidden)
+      .onChange(of: scrollTargetID) { _, targetID in
+        guard let targetID else { return }
+        withAnimation(.easeOut(duration: 0.15)) {
+          proxy.scrollTo(targetID, anchor: .top)
         }
-      }
-      .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-      if showDetails {
-        Divider()
-        detailsInspector
-          .frame(width: 220)
-          .transition(.move(edge: .trailing))
+        scrollTargetID = nil
       }
     }
-    .animation(.easeInOut(duration: 0.22), value: showDetails)
-    .navigationTitle("History")
-    .toolbar {
-      ToolbarItemGroup {
-        Menu {
-          Button("All models") { modelFilter = nil }
-          Divider()
-          ForEach(Array(Set(items.map(\.model))).sorted(), id: \.self) { model in
-            Button(model) { modelFilter = model }
-          }
-        } label: {
-          Label(
-            "Filter",
-            systemImage: modelFilter == nil
-              ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
-        }
-        .help(modelFilter.map { "Showing \($0)" } ?? "Filter by model")
+  }
+  private var historyListFooter: some View {
+    VStack(spacing: AppSpacing.sm) {
+      Text("Showing \(items.count) of \(totalItemCount) \(totalItemCount == 1 ? "dictation" : "dictations")")
+        .font(.system(size: 11, weight: .medium))
+        .foregroundStyle(theme.mutedForeground)
 
-        Button(justCopied ? "Copied" : "Copy") {
-          guard let selected else { return }
-          Self.copy(selected.text)
-          justCopied = true
-          Task {
-            try? await Task.sleep(for: .seconds(1.2))
-            justCopied = false
-          }
+      if items.count < totalItemCount {
+        Button("Load more") {
+          pageLimit += HistoryPresentationPolicy.pageSize
         }
-        .disabled(selected == nil)
-        .help("Copy the transcript")
-
-        Menu("Re-transcribe") { rerunMenuItems }
-          .disabled(selectedAudioURL == nil || isRerunning)
-          .help(
-            selected == nil
-              ? "Select a dictation"
-              : (selectedAudioURL == nil
-                ? "Audio file is gone — can't re-transcribe" : "Re-run this audio with a model"))
-
-        Menu("More") {
-          if let selectedAudioURL {
-            Button("Show in Finder") {
-              NSWorkspace.shared.activateFileViewerSelecting([selectedAudioURL])
-            }
-          }
-          Divider()
-          Button("Delete", role: .destructive) {
-            if let selected { delete(selected) }
-          }
-        }
-        .disabled(selected == nil)
-      }
-
-      ToolbarItemGroup {
-        Button("Details", systemImage: "sidebar.trailing") {
-          showDetails.toggle()
-        }
-        .help(showDetails ? "Hide details" : "Show details")
+        .buttonStyle(.sc(.outline, size: .sm))
       }
     }
-    .task(id: dictation.lastTranscript) { reload() }
-    .task(id: query) { reload() }
-    .task { await transcriptionCatalog.refreshIfNeeded() }
-    .enableInjection()
+    .frame(maxWidth: .infinity)
+  }
+  private func card(for record: TranscriptRecord) -> some View {
+    let id = record.id ?? -1
+    let isExpanded = expandedID == id
+    return HistoryRecordCard(
+      record: record,
+      isExpanded: isExpanded,
+      isDimmed: expandedID != nil && !isExpanded,
+      transcriptMode: transcriptMode(for: record),
+      onToggleExpanded: {
+        if HistoryPresentationPolicy.shouldOpenInDetail(record) {
+          detailID = id
+          detailSearchQuery = ""
+          expandedID = nil
+          loadFullRecord(id: id)
+          return
+        }
+        withAnimation(.easeOut(duration: 0.15)) {
+          expandedID = isExpanded ? nil : id
+        }
+        if !isExpanded {
+          scrollTargetID = id
+          loadFullRecord(id: id)
+        }
+      },
+      onOpenDetail: {
+        detailID = id
+        detailSearchQuery = ""
+        expandedID = nil
+        loadFullRecord(id: id)
+      },
+      onSetTranscriptMode: { mode in
+        transcriptModes[id] = mode
+      },
+      onCopy: {
+        Self.copy(record.transcriptText(for: transcriptMode(for: record)))
+      },
+      onShowDetails: {
+        detailsID = id
+        loadFullRecord(id: id)
+      },
+      onDelete: {
+        pendingDeleteID = id
+      }
+    )
+  }
+  private func detail(record: TranscriptRecord) -> some View {
+    HistoryDetailPlaybackView(
+      record: record,
+      transcriptMode: transcriptMode(for: record),
+      searchQuery: detailSearchQuery,
+      player: detailPlayer,
+      isRerunning: isRerunning,
+      rerunError: rerunError,
+      onSetTranscriptMode: { mode in
+        transcriptModes[record.id ?? -1] = mode
+      },
+      onCopy: {
+        Self.copy(record.transcriptText(for: transcriptMode(for: record)))
+      },
+      onShowDetails: {
+        detailsID = record.id
+        if let id = record.id { loadFullRecord(id: id) }
+      },
+      onDelete: {
+        pendingDeleteID = record.id
+      },
+      contextAction: {
+        HistoryRerunMenu(
+          models: transcriptionCatalog.batchModels,
+          isRerunning: isRerunning,
+          audioAvailable: record.audioPath.map(FileManager.default.fileExists(atPath:)) ?? false
+        ) { route in
+          rerun(record: record, route: route)
+        }
+      }
+    )
+  }
+  private var reloadKey: HistoryReloadKey {
+    HistoryReloadKey(query: query, pageLimit: pageLimit)
+  }
+  private var trimmedQuery: String {
+    query.trimmingCharacters(in: .whitespacesAndNewlines)
   }
 
-  @ViewBuilder private var rerunMenuItems: some View {
-    if transcriptionCatalog.batchModels.isEmpty {
-      Button("No batch models") {}
-        .disabled(true)
+  private func observePage() async {
+    do {
+      var isFirstValue = true
+      for try await page in try TranscriptStore.shared.observeHistoryPage(
+        matching: trimmedQuery,
+        limit: pageLimit
+      ) {
+        items = page.records
+        totalItemCount = page.totalCount
+        pruneHiddenSelections()
+        refreshActiveFullRecords()
+        guard isFirstValue else { continue }
+        isFirstValue = false
+        applyRequestedSelection()
+        await Task.yield()
+        NavigationPerformance.historyContentReady(
+          itemCount: items.count,
+          queryMilliseconds: page.queryMilliseconds
+        )
+      }
+    } catch {
+      guard !Task.isCancelled else { return }
+      TimberVoxLog.persistence.error(
+        "History observation failed: \(error.localizedDescription)"
+      )
+    }
+  }
+
+  private func pruneHiddenSelections() {
+    let visibleIDs = Set(items.compactMap(\.id))
+    if let expandedID, !visibleIDs.contains(expandedID) { self.expandedID = nil }
+    if let detailID, !visibleIDs.contains(detailID) { self.detailID = nil }
+    if let detailsID, !visibleIDs.contains(detailsID) { self.detailsID = nil }
+  }
+
+  /// List rows arrive without their JSON payloads; the expanded card, detail
+  /// view, and details sheet need the full record, fetched here on demand.
+  private func loadFullRecord(id: Int64) {
+    Task {
+      guard
+        let full = try? await TranscriptStore.shared.record(id: id),
+        let index = items.firstIndex(where: { $0.id == id })
+      else { return }
+      items[index] = full
+    }
+  }
+
+  private func refreshActiveFullRecords() {
+    for id in Set([expandedID, detailID, detailsID].compactMap { $0 }) {
+      loadFullRecord(id: id)
+    }
+  }
+
+  private func applyRequestedSelection() {
+    guard let requestedSelectionID else { return }
+    defer { self.requestedSelectionID = nil }
+    guard let record = items.first(where: { $0.id == requestedSelectionID }) else { return }
+    if HistoryPresentationPolicy.shouldOpenInDetail(record) {
+      detailID = requestedSelectionID
+      expandedID = nil
     } else {
-      ForEach(transcriptionCatalog.batchModels) { model in
-        if let route = model.batchRoute {
-          Button(model.menuLabel) {
-            rerun(route: route)
-          }
-        }
-      }
+      expandedID = requestedSelectionID
+      scrollTargetID = requestedSelectionID
     }
+    loadFullRecord(id: requestedSelectionID)
   }
 
-  @ViewBuilder private var detailsInspector: some View {
-    if let selected {
-      Form {
-        LabeledContent(
-          "Created", value: selected.createdAt.formatted(date: .abbreviated, time: .shortened))
-        LabeledContent("Model", value: selected.model)
-        if let provider = selected.provider {
-          LabeledContent("Provider", value: provider)
-        }
-        if let latency = selected.providerLatencyMs {
-          LabeledContent("Latency", value: "\(Int(latency)) ms")
-        }
-        if let language = selected.language {
-          LabeledContent("Language", value: language)
-        }
-        LabeledContent("Duration", value: HomePane.formatDuration(selected.durationSeconds))
-        LabeledContent("Words", value: "\(selected.text.split(separator: " ").count)")
-        if let path = selected.audioPath {
-          LabeledContent("Audio", value: URL(fileURLWithPath: path).lastPathComponent)
-        }
-      }
-      .formStyle(.grouped)
-    } else {
-      Text("Select a dictation")
-        .foregroundStyle(.secondary)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
+  private func resetTransientState() {
+    expandedID = nil
+    detailID = nil
+    detailsID = nil
+    pendingDeleteID = nil
+    detailSearchQuery = ""
+    detailPlayer.stop()
+    rerunError = nil
+    requestedSelectionID = nil
   }
 
-  private func rerun(route: TranscriptionRouteSpec) {
-    guard let source = selected, let audioURL = selectedAudioURL else { return }
+  private func rerun(record: TranscriptRecord, route: TranscriptionRouteSpec) {
+    guard
+      let audioPath = record.audioPath,
+      FileManager.default.fileExists(atPath: audioPath)
+    else {
+      return
+    }
     isRerunning = true
     rerunError = nil
     Task {
       do {
-        let outcome = try await HistoryRerunService.rerun(audioURL: audioURL, route: route)
-        let record = try TranscriptStore.shared.save(
-          text: outcome.text,
-          duration: source.durationSeconds,
-          model: route.model,
-          audioPath: source.audioPath,
-          provider: outcome.provider,
-          providerLatencyMs: outcome.providerLatencyMs,
-          language: outcome.language
+        let artifact = try await HistoryRerunService.rerun(
+          audioURL: URL(fileURLWithPath: audioPath),
+          route: route
         )
-        reload()
-        selectedID = record.id
+        let saved = try await Task.detached {
+          try TranscriptStore.shared.save(
+            text: artifact.displayText,
+            artifact: artifact,
+            duration: record.durationSeconds,
+            modeID: record.modeID,
+            modeName: record.modeName,
+            audioPath: record.audioPath,
+            sourceApplicationName: record.sourceApplicationName,
+            sourceApplicationBundleIdentifier: record.sourceApplicationBundleIdentifier
+          )
+        }.value
+        items.insert(saved, at: 0)
+        totalItemCount += 1
+        detailID = saved.id
       } catch {
         rerunError = error.localizedDescription
       }
@@ -255,142 +352,46 @@ struct HistoryPane: View {
     }
   }
 
-  private func reload() {
-    let trimmed = query.trimmingCharacters(in: .whitespaces)
-    items =
-      (try? trimmed.isEmpty
-        ? TranscriptStore.shared.recent() : TranscriptStore.shared.search(trimmed)) ?? []
+  private func transcriptMode(for record: TranscriptRecord) -> HistoryTranscriptViewMode {
+    let id = record.id ?? -1
+    let requested = transcriptModes[id] ?? record.defaultTranscriptMode
+    return record.availableTranscriptModes.contains(requested)
+      ? requested
+      : record.defaultTranscriptMode
   }
 
-  private func delete(_ item: TranscriptRecord) {
-    try? TranscriptStore.shared.delete(id: item.id ?? -1)
-    if selectedID == item.id { selectedID = nil }
-    reload()
+  private var deleteAlertBinding: Binding<Bool> {
+    Binding(
+      get: { pendingDeleteID != nil },
+      set: { isPresented in
+        if !isPresented { pendingDeleteID = nil }
+      }
+    )
   }
 
-  static func copy(_ text: String) {
+  private var detailsSheetBinding: Binding<Bool> {
+    Binding(
+      get: { detailsID != nil },
+      set: { isPresented in
+        if !isPresented { detailsID = nil }
+      }
+    )
+  }
+
+  private func deletePendingRecord() {
+    guard let pendingDeleteID else { return }
+    if expandedID == pendingDeleteID { expandedID = nil }
+    if detailID == pendingDeleteID { detailID = nil }
+    if detailsID == pendingDeleteID { detailsID = nil }
+    self.pendingDeleteID = nil
+    Task {
+      try? await TranscriptStore.shared.delete(id: pendingDeleteID)
+    }
+  }
+
+  private static func copy(_ text: String) {
+    guard !text.isEmpty else { return }
     NSPasteboard.general.clearContents()
     NSPasteboard.general.setString(text, forType: .string)
-  }
-
-  static func dayLabel(_ day: Date) -> String {
-    if Calendar.current.isDateInToday(day) { return "Today" }
-    if Calendar.current.isDateInYesterday(day) { return "Yesterday" }
-    return day.formatted(date: .abbreviated, time: .omitted)
-  }
-}
-
-private struct TranscriptDetailView: View {
-  let item: TranscriptRecord
-  let isRerunning: Bool
-  let rerunError: String?
-
-  private var audioURL: URL? {
-    guard let path = item.audioPath, FileManager.default.fileExists(atPath: path) else {
-      return nil
-    }
-    return URL(fileURLWithPath: path)
-  }
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 0) {
-      ScrollView {
-        Text(item.text)
-          .textSelection(.enabled)
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .padding(16)
-      }
-
-      if isRerunning {
-        HStack(spacing: 8) {
-          ProgressView().controlSize(.small)
-          Text("Re-transcribing…").foregroundStyle(.secondary)
-        }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 8)
-      }
-      if let rerunError {
-        Text(rerunError)
-          .font(.callout)
-          .foregroundStyle(.red)
-          .padding(.horizontal, 16)
-          .padding(.bottom, 8)
-      }
-
-      if let audioURL {
-        Divider()
-        PlaybackBar(url: audioURL)
-          .padding(.horizontal, 16)
-          .padding(.vertical, 10)
-      }
-    }
-  }
-}
-
-private struct PlaybackBar: View {
-  let url: URL
-
-  @State private var player: AVAudioPlayer?
-  @State private var isPlaying = false
-  @State private var position: TimeInterval = 0
-
-  var body: some View {
-    HStack(spacing: 10) {
-      Button(isPlaying ? "Pause" : "Play", systemImage: isPlaying ? "pause.fill" : "play.fill") {
-        togglePlayback()
-      }
-      .labelStyle(.iconOnly)
-      .buttonStyle(.borderless)
-
-      Text(HomePane.formatDuration(position))
-        .font(.caption)
-        .monospacedDigit()
-        .foregroundStyle(.secondary)
-
-      Slider(
-        value: Binding(
-          get: { position },
-          set: { newValue in
-            position = newValue
-            player?.currentTime = newValue
-          }
-        ),
-        in: 0...max(player?.duration ?? 0, 0.1)
-      )
-
-      Text(HomePane.formatDuration(player?.duration ?? 0))
-        .font(.caption)
-        .monospacedDigit()
-        .foregroundStyle(.secondary)
-    }
-    .task(id: url) {
-      player = try? AVAudioPlayer(contentsOf: url)
-      isPlaying = false
-      position = 0
-      while !Task.isCancelled {
-        if let player, isPlaying {
-          position = player.currentTime
-          if !player.isPlaying {
-            isPlaying = false
-            position = 0
-          }
-        }
-        try? await Task.sleep(for: .milliseconds(250))
-      }
-    }
-    .onDisappear {
-      player?.stop()
-    }
-  }
-
-  private func togglePlayback() {
-    guard let player else { return }
-    if isPlaying {
-      player.pause()
-      isPlaying = false
-    } else {
-      player.play()
-      isPlaying = true
-    }
   }
 }

@@ -1,4 +1,3 @@
-import Inject
 import SwiftUI
 
 enum ActiveTab: String, CaseIterable, Identifiable {
@@ -33,22 +32,40 @@ struct AppShellView: View {
   let billing: SubscriptionController
   let permissions: PermissionCoordinator
   @State private var activeTab: ActiveTab? = .home
-  @ObserveInjection var injection
+  @State private var selectedHistoryID: Int64?
 
   var body: some View {
-    Group {
-      if selectedTab == .modes {
-        ModesPane(activeTab: $activeTab)
-      } else {
-        NavigationSplitView {
-          AppSidebar(activeTab: $activeTab)
-        } detail: {
-          selectedDetail
-        }
-      }
+    SCSidebarLayout(
+      collapsible: .icon,
+      persistenceKey: "timbervox.sidebar.open",
+      expandedWidth: 184,
+      collapsedWidth: 56
+    ) {
+      AppSidebar(activeTab: $activeTab)
+    } detail: {
+      selectedPage
     }
     .frame(minWidth: 1000, minHeight: 620)
-    .enableInjection()
+    .ignoresSafeArea(.container, edges: .top)
+    .safeAreaInset(edge: .bottom, spacing: 0) {
+      AppDownloadStatusBar {
+        selectedHistoryID = nil
+        activeTab = .modes
+      }
+    }
+  }
+
+  @ViewBuilder private var selectedPage: some View {
+    if selectedTab == .history || selectedTab == .modes {
+      selectedDetail
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    } else {
+      VStack(spacing: 0) {
+        AppPageHeader(title: selectedTab.label)
+        selectedDetail
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
+      }
+    }
   }
 
   private var selectedTab: ActiveTab {
@@ -57,27 +74,19 @@ struct AppShellView: View {
 
   @ViewBuilder private var selectedDetail: some View {
     switch selectedTab {
-    case .home: HomePane(dictation: dictation)
-    case .history: HistoryPane(dictation: dictation)
+    case .home:
+      HomePane(
+        dictation: dictation,
+        activeTab: $activeTab,
+        selectedHistoryID: $selectedHistoryID
+      )
+    case .history:
+      HistoryPane(requestedSelectionID: $selectedHistoryID)
     case .settings:
       SettingsPane(dictation: dictation, billing: billing, permissions: permissions)
     case .modes:
-      EmptyView()
+      ModesPane()
     }
   }
-}
 
-struct AppSidebar: View {
-  @Binding var activeTab: ActiveTab?
-
-  var body: some View {
-    List(selection: $activeTab) {
-      ForEach(ActiveTab.allCases) { tab in
-        Label(tab.label, systemImage: tab.icon)
-          .tag(tab)
-      }
-    }
-    .navigationTitle("TimberVox")
-    .navigationSplitViewColumnWidth(min: 170, ideal: 184, max: 210)
-  }
 }
