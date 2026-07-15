@@ -43,6 +43,11 @@ struct TimberVoxApp: App {
       .task {
         await billing.refresh()
       }
+      .task {
+        Task.detached(priority: .background) {
+          DictationContextRetentionSweeper.sweep()
+        }
+      }
       .onReceive(
         NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
       ) { _ in

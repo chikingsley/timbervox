@@ -35,6 +35,8 @@ struct SettingsPane: View {
     .defaultKeepTranscriptOnClipboardAfterPaste
   @AppStorage(FluidAudioModelRetentionPreference.key)
   private var localModelRetentionMinutes = FluidAudioModelRetentionPreference.defaultMinutes
+  @AppStorage(DictationContextRetentionPreference.key)
+  private var contextRetentionDays = DictationContextRetentionPreference.defaultDays
 
   @State private var launchAtLogin = false
   @State private var launchAtLoginLoaded = false
@@ -101,6 +103,20 @@ struct SettingsPane: View {
       } footer: {
         Text(
           "TimberVox keeps only the most recently requested local batch or realtime model in memory."
+        )
+      }
+
+      Section {
+        Picker("Keep captured context", selection: $contextRetentionDays) {
+          ForEach(DictationContextRetentionOption.allCases) { option in
+            Text(option.label).tag(option.rawValue)
+          }
+        }
+      } header: {
+        Text("History")
+      } footer: {
+        Text(
+          "Screenshots and clipboard images captured for AI processing are deleted after this period. Transcripts are never deleted automatically."
         )
       }
 
@@ -231,6 +247,11 @@ struct SettingsPane: View {
       Task {
         await FluidAudioBatchTranscriber.shared.retentionPreferenceDidChange()
         await FluidAudioRealtimeTranscriptionSession.shared.retentionPreferenceDidChange()
+      }
+    }
+    .onChange(of: contextRetentionDays) { _, _ in
+      Task.detached(priority: .background) {
+        DictationContextRetentionSweeper.sweep()
       }
     }
   }
