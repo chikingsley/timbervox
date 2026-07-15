@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { recordUsageEvent } from "../accounting/usage";
 import { resolveBatchAsrModel } from "../ai/models/transcription-routes";
+import { batchTranscriptionArtifact } from "../ai/transcription/artifact";
 import { transcribeRemoteMedia } from "../ai/transcription/service";
 import type { AuthSession } from "../auth/service";
 import type { Env, JobRow } from "../bindings";
@@ -95,54 +96,44 @@ export const runTranscriptionJob = async (
       providerOptions: params.provider_options,
     });
     const providerLatencyMs = performance.now() - providerStart;
-    const rawTranscript = transcription.result.text;
+    const completedAt = nowIso();
+    const queueDelayMs =
+      job.queued_at === null
+        ? null
+        : Math.max(0, Date.parse(startedAt) - Date.parse(job.queued_at));
+    const artifact = batchTranscriptionArtifact({
+      completedAt,
+      model: transcription.model,
+      provider: transcription.provider,
+      providerLatencyMs,
+      queueDelayMs,
+      requestedLanguage: params.language,
+      result: transcription.result,
+      runId: job.id,
+      startedAt,
+      upstreamModel: transcription.upstreamModel,
+    });
 
     await recordUsageEvent(env, {
       asrSeconds: transcription.result.durationSeconds ?? null,
       clientId: job.credential_id ?? job.client_id,
+      inputTokens: transcription.result.usage.inputTokens ?? null,
       jobId: job.id,
       kind: "asr",
       model: transcription.model,
+      outputTokens: transcription.result.usage.outputTokens ?? null,
       provider: transcription.provider,
       providerLatencyMs: Math.round(providerLatencyMs),
       route: "/v1/transcriptions",
       status: 200,
+      totalTokens: transcription.result.usage.totalTokens ?? null,
       upstreamModel: transcription.upstreamModel,
       userId: job.owner_user_id,
     });
 
     await setJobStatus(env, job.id, "succeeded", {
       progress: 1,
-      result: {
-        asr: {
-          duration_seconds: transcription.result.durationSeconds ?? null,
-          language: transcription.result.language ?? null,
-          model: transcription.model,
-          provider: transcription.provider,
-          provider_latency_ms: Math.round(providerLatencyMs),
-          provider_metadata: transcription.result.providerMetadata ?? null,
-          segments: transcription.result.segments,
-          speaker_turns: transcription.result.speakerTurns,
-          upstream_model: transcription.upstreamModel,
-          warnings: transcription.result.warnings,
-          words: transcription.result.words,
-        },
-        queued_delay_ms:
-          job.queued_at === null
-            ? null
-            : Date.parse(startedAt) - Date.parse(job.queued_at),
-        raw_transcript: rawTranscript,
-        steps: [
-          {
-            kind: "asr",
-            model: transcription.model,
-            provider: transcription.provider,
-            provider_latency_ms: Math.round(providerLatencyMs),
-            upstream_model: transcription.upstreamModel,
-          },
-        ],
-        transcript: rawTranscript,
-      },
+      result: artifact,
     });
   } catch (error) {
     await handleJobError(env, job, error, input.attempts ?? 1);
@@ -191,10 +182,13 @@ export const createTranscription = async (
       await env.JOBS_QUEUE.send({ job_id: job.id, kind: "transcription" });
     }
     const fresh = await getJob(env, job.id);
+    if (!fresh) {
+      throw new Error(`completed transcription job disappeared: ${job.id}`);
+    }
     return {
       idempotentHit: false,
       status: 200 as const,
-      view: jobView(fresh ?? job),
+      view: jobView(fresh),
     };
   }
 

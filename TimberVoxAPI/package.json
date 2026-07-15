@@ -5,6 +5,7 @@
     "@types/node": "^26.1.1",
     "@types/ws": "^8.18.1",
     "knip": "^6.26.0",
+    "tsx": "^4.23.1",
     "typescript": "^7.0.2",
     "ultracite": "^7.9.4",
     "vitest": "^4.1.10",
@@ -12,6 +13,7 @@
     "ws": "^8.21.0"
   },
   "scripts": {
+    "benchmark:text": "TIMBERVOX_API_KEY=${TIMBERVOX_API_KEY:-$(sed -n 's/^TIMBERVOX_API_KEY = //p' ../Config/keys/TimberVoxAPI.local.xcconfig)} tsx scripts/benchmark-text.ts",
     "check": "wrangler types --check && ultracite check && tsc --noEmit",
     "dev": "wrangler dev --remote",
     "fix": "ultracite fix",

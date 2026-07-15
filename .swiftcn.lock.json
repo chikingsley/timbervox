@@ -1,0 +1,514 @@
+{
+  "items" : {
+    "alert" : {
+      "files" : [
+        {
+          "installedHash" : "9f10dafd689e942573ac58d320e4785ec3beea8d72c8618def6be88cf0cd674c",
+          "source" : "Sources/Swiftcn/Components/Alert.swift",
+          "sourceHash" : "9f10dafd689e942573ac58d320e4785ec3beea8d72c8618def6be88cf0cd674c",
+          "target" : "Alert.swift"
+        }
+      ]
+    },
+    "alert-dialog" : {
+      "files" : [
+        {
+          "installedHash" : "3574e7781a1c0490fcc7242e395a4bb058a8755f0069c7e15b75dc8a179e196c",
+          "source" : "Sources/Swiftcn/Components/AlertDialog.swift",
+          "sourceHash" : "3574e7781a1c0490fcc7242e395a4bb058a8755f0069c7e15b75dc8a179e196c",
+          "target" : "AlertDialog.swift"
+        },
+        {
+          "installedHash" : "db8604c3ec1e30e1615c0b24e87dc763e3c21ffec4eb34f1f7bdfaebc381da22",
+          "source" : "Sources/Swiftcn/Components/AlertDialogModifier.swift",
+          "sourceHash" : "db8604c3ec1e30e1615c0b24e87dc763e3c21ffec4eb34f1f7bdfaebc381da22",
+          "target" : "AlertDialogModifier.swift"
+        }
+      ]
+    },
+    "badge" : {
+      "files" : [
+        {
+          "installedHash" : "36d101917aaefed59f037de5c35ef3f167dbb3a64e0a872ff3677f8b9a6b16d9",
+          "source" : "Sources/Swiftcn/Components/Badge.swift",
+          "sourceHash" : "36d101917aaefed59f037de5c35ef3f167dbb3a64e0a872ff3677f8b9a6b16d9",
+          "target" : "Badge.swift"
+        }
+      ]
+    },
+    "button" : {
+      "files" : [
+        {
+          "installedHash" : "216c81d585cdeb898ec18de9294e650da33d709edc628bd0f94414e4b354cd9b",
+          "source" : "Sources/Swiftcn/Components/Button.swift",
+          "sourceHash" : "216c81d585cdeb898ec18de9294e650da33d709edc628bd0f94414e4b354cd9b",
+          "target" : "Button.swift"
+        }
+      ]
+    },
+    "card" : {
+      "files" : [
+        {
+          "installedHash" : "a36fff40a2dafb15dd723e9ab0be8300223aab81d89f59c9591e41beb999d55a",
+          "source" : "Sources/Swiftcn/Components/Card.swift",
+          "sourceHash" : "a36fff40a2dafb15dd723e9ab0be8300223aab81d89f59c9591e41beb999d55a",
+          "target" : "Card.swift"
+        }
+      ]
+    },
+    "combobox" : {
+      "files" : [
+        {
+          "installedHash" : "2226b05f60ebd29b5f581497d21ef007cba7d865951da21539e94f8fb181b595",
+          "source" : "Sources/Swiftcn/Components/Combobox.swift",
+          "sourceHash" : "2226b05f60ebd29b5f581497d21ef007cba7d865951da21539e94f8fb181b595",
+          "target" : "Combobox.swift"
+        },
+        {
+          "installedHash" : "261bbcb00a7195c4895b4fc6edcc774cd17e5877f366602bd1bdd2e6c0404b68",
+          "source" : "Sources/Swiftcn/Components/ComboboxCollection.swift",
+          "sourceHash" : "261bbcb00a7195c4895b4fc6edcc774cd17e5877f366602bd1bdd2e6c0404b68",
+          "target" : "ComboboxCollection.swift"
+        },
+        {
+          "installedHash" : "47d20b6b20e3bc07a69a315ab11f647af5c9d2844f67aca950d712d449fb9a98",
+          "source" : "Sources/Swiftcn/Components/ComboboxControls.swift",
+          "sourceHash" : "47d20b6b20e3bc07a69a315ab11f647af5c9d2844f67aca950d712d449fb9a98",
+          "target" : "ComboboxControls.swift"
+        },
+        {
+          "installedHash" : "f5160101ab06851492964eb9c728b1636436489aeb5ca477bcc74e46fa38919c",
+          "source" : "Sources/Swiftcn/Components/ComboboxConvenience.swift",
+          "sourceHash" : "f5160101ab06851492964eb9c728b1636436489aeb5ca477bcc74e46fa38919c",
+          "target" : "ComboboxConvenience.swift"
+        },
+        {
+          "installedHash" : "4009711feac4794623aa31b73f66f659deced0184fd00e96a9265f16a89b6304",
+          "source" : "Sources/Swiftcn/Components/ComboboxFlowLayout.swift",
+          "sourceHash" : "4009711feac4794623aa31b73f66f659deced0184fd00e96a9265f16a89b6304",
+          "target" : "ComboboxFlowLayout.swift"
+        },
+        {
+          "installedHash" : "f23558c8238b45e87ef848acb9742476851d326aded60d53f1f938f5f4197b6c",
+          "source" : "Sources/Swiftcn/Components/ComboboxPicker.swift",
+          "sourceHash" : "f23558c8238b45e87ef848acb9742476851d326aded60d53f1f938f5f4197b6c",
+          "target" : "ComboboxPicker.swift"
+        },
+        {
+          "installedHash" : "7f45dd15393967cb7921fb4edd5525d3743112bee3b9f347953f218508a0b023",
+          "source" : "Sources/Swiftcn/Components/ComboboxRowAction.swift",
+          "sourceHash" : "7f45dd15393967cb7921fb4edd5525d3743112bee3b9f347953f218508a0b023",
+          "target" : "ComboboxRowAction.swift"
+        }
+      ]
+    },
+    "drawer" : {
+      "files" : [
+        {
+          "installedHash" : "3d4cae30d561623f478c2a366e485a9f803ca47940efdcba4ac29c26d1ff49a4",
+          "source" : "Sources/Swiftcn/Components/Drawer.swift",
+          "sourceHash" : "3d4cae30d561623f478c2a366e485a9f803ca47940efdcba4ac29c26d1ff49a4",
+          "target" : "Drawer.swift"
+        },
+        {
+          "installedHash" : "d256975e27b0001d4ab47ab250dd29710f4d53c087df3aaef3f15da710d822eb",
+          "source" : "Sources/Swiftcn/Components/DrawerParts.swift",
+          "sourceHash" : "d256975e27b0001d4ab47ab250dd29710f4d53c087df3aaef3f15da710d822eb",
+          "target" : "DrawerParts.swift"
+        },
+        {
+          "installedHash" : "83dc7801d2e0bed3970398c45614642f1475bb9dc1aca129b5aeecdf0bfe4319",
+          "source" : "Sources/Swiftcn/Components/DrawerPresentation.swift",
+          "sourceHash" : "83dc7801d2e0bed3970398c45614642f1475bb9dc1aca129b5aeecdf0bfe4319",
+          "target" : "DrawerPresentation.swift"
+        }
+      ]
+    },
+    "dropdown-menu" : {
+      "files" : [
+        {
+          "installedHash" : "eefbdbe1a0a86c656ed48770ce161dc7f3c28533dfd46d0b9ceead5189d94c4c",
+          "source" : "Sources/Swiftcn/Components/DropdownMenu.swift",
+          "sourceHash" : "eefbdbe1a0a86c656ed48770ce161dc7f3c28533dfd46d0b9ceead5189d94c4c",
+          "target" : "DropdownMenu.swift"
+        }
+      ]
+    },
+    "empty" : {
+      "files" : [
+        {
+          "installedHash" : "81f656d701f13e6061d09e54d1aac3fd7567e6282d74f2a65324ad61eba71b8e",
+          "source" : "Sources/Swiftcn/Components/Empty.swift",
+          "sourceHash" : "81f656d701f13e6061d09e54d1aac3fd7567e6282d74f2a65324ad61eba71b8e",
+          "target" : "Empty.swift"
+        }
+      ]
+    },
+    "field" : {
+      "files" : [
+        {
+          "installedHash" : "c319baab630a48a11ebc906c318c2926834d6daa86069658131bc4874f5d9fc7",
+          "source" : "Sources/Swiftcn/Components/Field.swift",
+          "sourceHash" : "c319baab630a48a11ebc906c318c2926834d6daa86069658131bc4874f5d9fc7",
+          "target" : "Field.swift"
+        },
+        {
+          "installedHash" : "83a48b5cebb8094a3f9806cdf31217f9e84659535fd228e83ef5f4b6eff9bd4c",
+          "source" : "Sources/Swiftcn/Components/FieldFeedback.swift",
+          "sourceHash" : "83a48b5cebb8094a3f9806cdf31217f9e84659535fd228e83ef5f4b6eff9bd4c",
+          "target" : "FieldFeedback.swift"
+        },
+        {
+          "installedHash" : "ef6982ac084073cbe8f7d2c5cffc1d88192840f4a35282543659358d1986d3e1",
+          "source" : "Sources/Swiftcn/Components/FieldInvalidState.swift",
+          "sourceHash" : "ef6982ac084073cbe8f7d2c5cffc1d88192840f4a35282543659358d1986d3e1",
+          "target" : "FieldInvalidState.swift"
+        }
+      ]
+    },
+    "hover-card" : {
+      "files" : [
+        {
+          "installedHash" : "f047da4526f402490809f65c8d6739e3384006689e03d5fcff7d6ac87f06fcb4",
+          "source" : "Sources/Swiftcn/Components/HoverCard.swift",
+          "sourceHash" : "f047da4526f402490809f65c8d6739e3384006689e03d5fcff7d6ac87f06fcb4",
+          "target" : "HoverCard.swift"
+        },
+        {
+          "installedHash" : "d459249a69edfb40bedd31b03d468bceb71bb8aeb3ad7050135c82320f8a5490",
+          "source" : "Sources/Swiftcn/Components/HoverCardState.swift",
+          "sourceHash" : "d459249a69edfb40bedd31b03d468bceb71bb8aeb3ad7050135c82320f8a5490",
+          "target" : "HoverCardState.swift"
+        }
+      ]
+    },
+    "input" : {
+      "files" : [
+        {
+          "installedHash" : "19a322b2af42893cc457bf50793dcf42f3fd5635948e88ac9035465f7faf91b1",
+          "source" : "Sources/Swiftcn/Components/Input.swift",
+          "sourceHash" : "19a322b2af42893cc457bf50793dcf42f3fd5635948e88ac9035465f7faf91b1",
+          "target" : "Input.swift"
+        },
+        {
+          "installedHash" : "f1789de519d6ecf37433a486a453f5baa5c971c0bf18e9787669c311d2c7f2d1",
+          "source" : "Sources/Swiftcn/Components/InputTyped.swift",
+          "sourceHash" : "f1789de519d6ecf37433a486a453f5baa5c971c0bf18e9787669c311d2c7f2d1",
+          "target" : "InputTyped.swift"
+        }
+      ]
+    },
+    "input-group-context" : {
+      "files" : [
+        {
+          "installedHash" : "57343ca1295943d2adde1261f667e77637a331e6070bb987f437eca22073568d",
+          "source" : "Sources/Swiftcn/Components/InputGroupContext.swift",
+          "sourceHash" : "57343ca1295943d2adde1261f667e77637a331e6070bb987f437eca22073568d",
+          "target" : "InputGroupContext.swift"
+        }
+      ]
+    },
+    "item" : {
+      "files" : [
+        {
+          "installedHash" : "f24f0e91ad337a770cca4efafa722c8d170ca02a77be43a52a6cd510ac31792f",
+          "source" : "Sources/Swiftcn/Components/Item.swift",
+          "sourceHash" : "f24f0e91ad337a770cca4efafa722c8d170ca02a77be43a52a6cd510ac31792f",
+          "target" : "Item.swift"
+        },
+        {
+          "installedHash" : "feba5edcaa03635990a401cdad30973a40fc0bf825ac2a0b2b9d44bca7177799",
+          "source" : "Sources/Swiftcn/Components/ItemContentParts.swift",
+          "sourceHash" : "feba5edcaa03635990a401cdad30973a40fc0bf825ac2a0b2b9d44bca7177799",
+          "target" : "ItemContentParts.swift"
+        },
+        {
+          "installedHash" : "f1c52d695c6fedf0e92fe57ef5af32bd18a51a870c3790909b8c8d1c0fc3ac06",
+          "source" : "Sources/Swiftcn/Components/ItemParts.swift",
+          "sourceHash" : "f1c52d695c6fedf0e92fe57ef5af32bd18a51a870c3790909b8c8d1c0fc3ac06",
+          "target" : "ItemParts.swift"
+        }
+      ]
+    },
+    "kbd" : {
+      "files" : [
+        {
+          "installedHash" : "3c2d6ed3bce568e52f590378ad6b429ee79b08be52bcf2227a950214f05fe40e",
+          "source" : "Sources/Swiftcn/Components/Kbd.swift",
+          "sourceHash" : "3c2d6ed3bce568e52f590378ad6b429ee79b08be52bcf2227a950214f05fe40e",
+          "target" : "Kbd.swift"
+        }
+      ]
+    },
+    "overlay-portal" : {
+      "files" : [
+        {
+          "installedHash" : "0af315947426360ee2a9ee97a5b525f06684c61abea3fc64f327a73ae03b1143",
+          "source" : "Sources/Swiftcn/Components/OverlayPortal.swift",
+          "sourceHash" : "0af315947426360ee2a9ee97a5b525f06684c61abea3fc64f327a73ae03b1143",
+          "target" : "OverlayPortal.swift"
+        }
+      ]
+    },
+    "progress" : {
+      "files" : [
+        {
+          "installedHash" : "68f3be78eec0394029c6779f2baef15506c609d94ba12e116777a2e91a7d0260",
+          "source" : "Sources/Swiftcn/Components/Progress.swift",
+          "sourceHash" : "68f3be78eec0394029c6779f2baef15506c609d94ba12e116777a2e91a7d0260",
+          "target" : "Progress.swift"
+        },
+        {
+          "installedHash" : "57bcdf4fa853af053c1bcc7ff8240aeaf2aeecef57016f7a7bd72d85130565bf",
+          "source" : "Sources/Swiftcn/Components/ProgressStyle.swift",
+          "sourceHash" : "57bcdf4fa853af053c1bcc7ff8240aeaf2aeecef57016f7a7bd72d85130565bf",
+          "target" : "ProgressStyle.swift"
+        }
+      ]
+    },
+    "scrub-bar" : {
+      "files" : [
+        {
+          "installedHash" : "88c5cf375559d00d9275a0ed17be88fff0c0e043dc543b20f44bf5a07576e953",
+          "source" : "Sources/Swiftcn/Audio/ScrubBar.swift",
+          "sourceHash" : "88c5cf375559d00d9275a0ed17be88fff0c0e043dc543b20f44bf5a07576e953",
+          "target" : "ScrubBar.swift"
+        }
+      ]
+    },
+    "select" : {
+      "files" : [
+        {
+          "installedHash" : "c5d19832fd7f3fd11d343f66d049d4970b2869cad8c370d49637535021002763",
+          "source" : "Sources/Swiftcn/Components/Select.swift",
+          "sourceHash" : "c5d19832fd7f3fd11d343f66d049d4970b2869cad8c370d49637535021002763",
+          "target" : "Select.swift"
+        },
+        {
+          "installedHash" : "626c1a2731460734223e98a931b07a1a84616f877944c2a6500b73d1d97cc61a",
+          "source" : "Sources/Swiftcn/Components/SelectConvenience.swift",
+          "sourceHash" : "626c1a2731460734223e98a931b07a1a84616f877944c2a6500b73d1d97cc61a",
+          "target" : "SelectConvenience.swift"
+        },
+        {
+          "installedHash" : "dec91db5db4d984b4bace3aad0d00f7de1a208e828906b9f5a5c76a87e43a7b7",
+          "source" : "Sources/Swiftcn/Components/SelectParts.swift",
+          "sourceHash" : "dec91db5db4d984b4bace3aad0d00f7de1a208e828906b9f5a5c76a87e43a7b7",
+          "target" : "SelectParts.swift"
+        },
+        {
+          "installedHash" : "ec766a98537eb0e3c0a9bf34c5c64d2e3eeac36c11475198b3a56f8613fa2076",
+          "source" : "Sources/Swiftcn/Components/SelectRendering.swift",
+          "sourceHash" : "ec766a98537eb0e3c0a9bf34c5c64d2e3eeac36c11475198b3a56f8613fa2076",
+          "target" : "SelectRendering.swift"
+        }
+      ]
+    },
+    "separator" : {
+      "files" : [
+        {
+          "installedHash" : "81636f882f1f5911bd2c211386eed55a67e70cab21bbc423f8dd2cc58d57e731",
+          "source" : "Sources/Swiftcn/Components/Separator.swift",
+          "sourceHash" : "81636f882f1f5911bd2c211386eed55a67e70cab21bbc423f8dd2cc58d57e731",
+          "target" : "Separator.swift"
+        }
+      ]
+    },
+    "sheet" : {
+      "files" : [
+        {
+          "installedHash" : "26d637aff19654b5d29ee4a0ed24bafe5cb5d8bb4aaada93572054253ec1a8c1",
+          "source" : "Sources/Swiftcn/Components/Sheet.swift",
+          "sourceHash" : "26d637aff19654b5d29ee4a0ed24bafe5cb5d8bb4aaada93572054253ec1a8c1",
+          "target" : "Sheet.swift"
+        },
+        {
+          "installedHash" : "345335ec0ca940abcbdd2613d3e1d204c0d5c8afc3257612ed55c875a0d7091d",
+          "source" : "Sources/Swiftcn/Components/SheetParts.swift",
+          "sourceHash" : "345335ec0ca940abcbdd2613d3e1d204c0d5c8afc3257612ed55c875a0d7091d",
+          "target" : "SheetParts.swift"
+        },
+        {
+          "installedHash" : "a6d921a23b0568dd6e1686f376c86fd37f1c5f2945d1c5adc9dc8b43cc8338f6",
+          "source" : "Sources/Swiftcn/Components/SheetPresentation.swift",
+          "sourceHash" : "a6d921a23b0568dd6e1686f376c86fd37f1c5f2945d1c5adc9dc8b43cc8338f6",
+          "target" : "SheetPresentation.swift"
+        }
+      ]
+    },
+    "sidebar" : {
+      "files" : [
+        {
+          "installedHash" : "47ca25ca94f26417582c6518b475da2f39e20a2314a6e7ace23997db4541db06",
+          "source" : "Sources/Swiftcn/Components/Sidebar.swift",
+          "sourceHash" : "47ca25ca94f26417582c6518b475da2f39e20a2314a6e7ace23997db4541db06",
+          "target" : "Sidebar.swift"
+        },
+        {
+          "installedHash" : "b0794ad099383a4207f5683deec020b19e930bf239484a191f5138b04f432ada",
+          "source" : "Sources/Swiftcn/Components/SidebarControls.swift",
+          "sourceHash" : "b0794ad099383a4207f5683deec020b19e930bf239484a191f5138b04f432ada",
+          "target" : "SidebarControls.swift"
+        },
+        {
+          "installedHash" : "18ec69483955d5d58042c6b14c2fdd9d437353135e6706b83a3dd6ded05fe53e",
+          "source" : "Sources/Swiftcn/Components/SidebarMenu.swift",
+          "sourceHash" : "18ec69483955d5d58042c6b14c2fdd9d437353135e6706b83a3dd6ded05fe53e",
+          "target" : "SidebarMenu.swift"
+        },
+        {
+          "installedHash" : "daf586cae0838fb7fcac597fd7a665dfe8d8192e0ea02c9f987f648050cabe89",
+          "source" : "Sources/Swiftcn/Components/SidebarMenuExtras.swift",
+          "sourceHash" : "daf586cae0838fb7fcac597fd7a665dfe8d8192e0ea02c9f987f648050cabe89",
+          "target" : "SidebarMenuExtras.swift"
+        },
+        {
+          "installedHash" : "40eb14fc933776e0402a466950b5d5f6725774ff26e5bd29d2d86422fbe54f47",
+          "source" : "Sources/Swiftcn/Components/SidebarSections.swift",
+          "sourceHash" : "40eb14fc933776e0402a466950b5d5f6725774ff26e5bd29d2d86422fbe54f47",
+          "target" : "SidebarSections.swift"
+        },
+        {
+          "installedHash" : "26d384dbe5ec6fffbb07a064f5deb2e9f31b30d8ee729d6cc9a1afe2dc8c07c7",
+          "source" : "Sources/Swiftcn/Components/SidebarState.swift",
+          "sourceHash" : "26d384dbe5ec6fffbb07a064f5deb2e9f31b30d8ee729d6cc9a1afe2dc8c07c7",
+          "target" : "SidebarState.swift"
+        }
+      ]
+    },
+    "skeleton" : {
+      "files" : [
+        {
+          "installedHash" : "96e4e9491df02ebe6f4bee3f001e3a248390bcb15fa3d498e62cf0172209369c",
+          "source" : "Sources/Swiftcn/Components/Skeleton.swift",
+          "sourceHash" : "96e4e9491df02ebe6f4bee3f001e3a248390bcb15fa3d498e62cf0172209369c",
+          "target" : "Skeleton.swift"
+        }
+      ]
+    },
+    "spinner" : {
+      "files" : [
+        {
+          "installedHash" : "330e6f92227d38c2c3881888ca6121d7974a3d06e01594c5ba440196aebad5a0",
+          "source" : "Sources/Swiftcn/Components/Spinner.swift",
+          "sourceHash" : "330e6f92227d38c2c3881888ca6121d7974a3d06e01594c5ba440196aebad5a0",
+          "target" : "Spinner.swift"
+        }
+      ]
+    },
+    "switch" : {
+      "files" : [
+        {
+          "installedHash" : "ea2e3f30ee6123e359db4dbb20d8b0607afafc9b73841f16cc63ccd3fa4ba09c",
+          "source" : "Sources/Swiftcn/Components/Switch.swift",
+          "sourceHash" : "ea2e3f30ee6123e359db4dbb20d8b0607afafc9b73841f16cc63ccd3fa4ba09c",
+          "target" : "Switch.swift"
+        }
+      ]
+    },
+    "textarea" : {
+      "files" : [
+        {
+          "installedHash" : "d67d03f4cb637f48ad0ba18595b6c294d9515c1572b43bd6a51db6484f03f19c",
+          "source" : "Sources/Swiftcn/Components/Textarea.swift",
+          "sourceHash" : "d67d03f4cb637f48ad0ba18595b6c294d9515c1572b43bd6a51db6484f03f19c",
+          "target" : "Textarea.swift"
+        }
+      ]
+    },
+    "theme" : {
+      "files" : [
+        {
+          "installedHash" : "cc32cee380235954d04bdd63c87f09d7746809afea2d6cfa5f6f766a22081f01",
+          "source" : "Sources/Swiftcn/Theme/Color+Adaptive.swift",
+          "sourceHash" : "cc32cee380235954d04bdd63c87f09d7746809afea2d6cfa5f6f766a22081f01",
+          "target" : "Color+Adaptive.swift"
+        },
+        {
+          "installedHash" : "baf30b3fd67f58b72ecfc26d74f599a97ed6075f62068ee65af904aecd1ad92d",
+          "source" : "Sources/Swiftcn/Theme/Palette.swift",
+          "sourceHash" : "baf30b3fd67f58b72ecfc26d74f599a97ed6075f62068ee65af904aecd1ad92d",
+          "target" : "Palette.swift"
+        },
+        {
+          "installedHash" : "555024bbbfa5a5f6e698fbc8e8f7d7040a66bde7c23daea27df20f5cc4b13111",
+          "source" : "Sources/Swiftcn/Theme/Theme.swift",
+          "sourceHash" : "555024bbbfa5a5f6e698fbc8e8f7d7040a66bde7c23daea27df20f5cc4b13111",
+          "target" : "Theme.swift"
+        }
+      ]
+    },
+    "toggle" : {
+      "files" : [
+        {
+          "installedHash" : "8460d642ffd6750d564b9a7cfd9bd024b16b94418428c87be14369f873f033bd",
+          "source" : "Sources/Swiftcn/Components/Toggle.swift",
+          "sourceHash" : "8460d642ffd6750d564b9a7cfd9bd024b16b94418428c87be14369f873f033bd",
+          "target" : "Toggle.swift"
+        }
+      ]
+    },
+    "toggle-group" : {
+      "files" : [
+        {
+          "installedHash" : "4b069c829a241a89d1b4ff7d71590d596799888d70875c72970080b662961abf",
+          "source" : "Sources/Swiftcn/Components/ToggleGroup.swift",
+          "sourceHash" : "4b069c829a241a89d1b4ff7d71590d596799888d70875c72970080b662961abf",
+          "target" : "ToggleGroup.swift"
+        },
+        {
+          "installedHash" : "f47d791cba3a17b06d8ee195080feb061ea5b60a644bb7b78d90f4cd23aa3c53",
+          "source" : "Sources/Swiftcn/Components/ToggleGroupConvenience.swift",
+          "sourceHash" : "f47d791cba3a17b06d8ee195080feb061ea5b60a644bb7b78d90f4cd23aa3c53",
+          "target" : "ToggleGroupConvenience.swift"
+        },
+        {
+          "installedHash" : "1540a6a1cbfa0a2b0b7e48c02013bb41b23bd32548bbb9eaf4450eba7c7ca02a",
+          "source" : "Sources/Swiftcn/Components/ToggleGroupItem.swift",
+          "sourceHash" : "1540a6a1cbfa0a2b0b7e48c02013bb41b23bd32548bbb9eaf4450eba7c7ca02a",
+          "target" : "ToggleGroupItem.swift"
+        }
+      ]
+    },
+    "tooltip" : {
+      "files" : [
+        {
+          "installedHash" : "c072556c616c1a2ffd4bb6484fdc83a430c8aa6f5c3516d643c72142e72bb33f",
+          "source" : "Sources/Swiftcn/Components/Tooltip.swift",
+          "sourceHash" : "c072556c616c1a2ffd4bb6484fdc83a430c8aa6f5c3516d643c72142e72bb33f",
+          "target" : "Tooltip.swift"
+        }
+      ]
+    },
+    "transcript-viewer" : {
+      "files" : [
+        {
+          "installedHash" : "a9ab5cc720ddab01f44a50578cbeaef763dedc166280783ead4731651cf2205a",
+          "source" : "Sources/Swiftcn/Audio/TranscriptViewer.swift",
+          "sourceHash" : "a9ab5cc720ddab01f44a50578cbeaef763dedc166280783ead4731651cf2205a",
+          "target" : "TranscriptViewer.swift"
+        },
+        {
+          "installedHash" : "dc04c7aef7e8598b8eecfd214e164f4e7a41ba557a68f26b551b679c4c9d047d",
+          "source" : "Sources/Swiftcn/Audio/TranscriptViewerControls.swift",
+          "sourceHash" : "dc04c7aef7e8598b8eecfd214e164f4e7a41ba557a68f26b551b679c4c9d047d",
+          "target" : "TranscriptViewerControls.swift"
+        },
+        {
+          "installedHash" : "38fa422f6a73a62a7f8d796de513ea9ad0a22d9a9ef74cbdf287fa126fcb6145",
+          "source" : "Sources/Swiftcn/Audio/TranscriptViewerModels.swift",
+          "sourceHash" : "38fa422f6a73a62a7f8d796de513ea9ad0a22d9a9ef74cbdf287fa126fcb6145",
+          "target" : "TranscriptViewerModels.swift"
+        },
+        {
+          "installedHash" : "60c104bee4ade6356036daa828a94ef16d952b026f7560c241d0d6b476470077",
+          "source" : "Sources/Swiftcn/Audio/TranscriptViewerWords.swift",
+          "sourceHash" : "60c104bee4ade6356036daa828a94ef16d952b026f7560c241d0d6b476470077",
+          "target" : "TranscriptViewerWords.swift"
+        }
+      ]
+    }
+  },
+  "registry" : "../swiftcn-ui/registry.json",
+  "schemaVersion" : 1
+}

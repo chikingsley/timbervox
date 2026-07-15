@@ -140,8 +140,14 @@ describe.sequential("deployed provider-neutral realtime contract", () => {
       );
       expect(started?.protocol_version).toBe(1);
       expect(completed?.protocol_version).toBe(1);
-      expect(completed?.provider).toBe(testCase.provider);
-      expect(String(completed?.transcript ?? "").trim().length).toBeGreaterThan(
+      const completedResult = completed?.result as
+        | Record<string, unknown>
+        | undefined;
+      const provenance = completedResult?.provenance as
+        | Record<string, unknown>
+        | undefined;
+      expect(provenance?.provider).toBe(testCase.provider);
+      expect(String(completedResult?.text ?? "").trim().length).toBeGreaterThan(
         0
       );
 
@@ -159,7 +165,7 @@ describe.sequential("deployed provider-neutral realtime contract", () => {
       expect(response.status).toBe(200);
       const recovered = (await response.json()) as Record<string, unknown>;
       expect(recovered.type).toBe("session.completed");
-      expect(recovered.transcript).toBe(completed?.transcript);
+      expect(recovered.result).toEqual(completed?.result);
     }, 60_000);
   }
 });

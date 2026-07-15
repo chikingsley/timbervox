@@ -1,4 +1,3 @@
-import Inject
 import SwiftUI
 
 /// The pill itself: near-invisible oval when idle, red level-reactive pill
@@ -22,7 +21,6 @@ enum IndicatorStyle: String, CaseIterable, Identifiable {
 struct RecordingPillView: View {
   let dictation: DictationController
   @AppStorage("indicatorStyle") private var styleRaw = IndicatorStyle.defaultValue.rawValue
-  @ObserveInjection var injection
 
   private var style: IndicatorStyle {
     IndicatorStyle(rawValue: styleRaw) ?? .defaultValue
@@ -41,7 +39,6 @@ struct RecordingPillView: View {
       Spacer().frame(height: 8)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .enableInjection()
   }
 
   private enum Phase: Equatable {

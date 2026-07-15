@@ -1,13 +1,37 @@
-import type { LanguageModelEntry, LanguageModelProviderId } from "./types";
+import type {
+  LanguageModelCallPolicy,
+  LanguageModelEntry,
+  LanguageModelIntelligence,
+  LanguageModelProviderId,
+} from "./types";
+
+interface LanguageModelConfig {
+  callPolicy: LanguageModelCallPolicy;
+  intelligence?: LanguageModelIntelligence;
+  model: string;
+}
+
+const artificialAnalysis = (
+  index: number,
+  profile: string
+): LanguageModelIntelligence => ({
+  index,
+  measuredAt: "2026-07-14",
+  profile,
+  source: "artificial-analysis",
+  sourceVersion: "4.1",
+});
 
 const mapLanguageModels = <TProvider extends LanguageModelProviderId>(
   provider: TProvider,
-  models: readonly string[]
+  models: readonly LanguageModelConfig[]
 ): Record<string, LanguageModelEntry> =>
   Object.fromEntries(
-    models.map((model) => [
+    models.map(({ callPolicy, intelligence, model }) => [
       `${provider}-${model}`,
       {
+        callPolicy,
+        intelligence,
         provider,
         providerModelId: `${provider}:${model}`,
         upstreamModel: model,
@@ -15,62 +39,187 @@ const mapLanguageModels = <TProvider extends LanguageModelProviderId>(
     ])
   );
 
-const ANTHROPIC_LANGUAGE_MODEL_IDS = [
-  "claude-fable-5",
-  "claude-opus-4-8",
-  "claude-sonnet-5",
-  "claude-haiku-4-5",
-] as const;
+const ANTHROPIC_LANGUAGE_MODELS = [
+  {
+    callPolicy: {
+      providerOptions: { anthropic: { thinking: { type: "disabled" } } },
+      reasoningProfile: "none",
+    },
+    intelligence: artificialAnalysis(41.7, "claude-sonnet-5-non-reasoning"),
+    model: "claude-sonnet-5",
+  },
+  {
+    callPolicy: {
+      providerOptions: { anthropic: { thinking: { type: "disabled" } } },
+      reasoningProfile: "none",
+    },
+    intelligence: artificialAnalysis(23.7, "claude-4-5-haiku"),
+    model: "claude-haiku-4-5",
+  },
+] as const satisfies readonly LanguageModelConfig[];
 
-const CEREBRAS_LANGUAGE_MODEL_IDS = [
-  "gpt-oss-120b",
-  "gemma-4-31b",
-  "zai-glm-4.7",
-] as const;
+const CEREBRAS_LANGUAGE_MODELS = [
+  {
+    callPolicy: {
+      providerOptions: { cerebras: { reasoningEffort: "low" } },
+      reasoningProfile: "low",
+    },
+    intelligence: artificialAnalysis(14.9, "gpt-oss-120b-low"),
+    model: "gpt-oss-120b",
+  },
+  {
+    callPolicy: { reasoningProfile: "none" },
+    intelligence: artificialAnalysis(21.8, "gemma-4-31b-non-reasoning"),
+    model: "gemma-4-31b",
+  },
+  {
+    callPolicy: {
+      providerOptions: { cerebras: { reasoningEffort: "none" } },
+      reasoningProfile: "none",
+    },
+    intelligence: artificialAnalysis(26.6, "glm-4-7-non-reasoning"),
+    model: "zai-glm-4.7",
+  },
+] as const satisfies readonly LanguageModelConfig[];
 
-const DEEPSEEK_LANGUAGE_MODEL_IDS = [
-  "deepseek-v4-flash",
-  "deepseek-v4-pro",
-] as const;
+const DEEPSEEK_LANGUAGE_MODELS = [
+  {
+    callPolicy: {
+      providerOptions: { deepseek: { thinking: { type: "disabled" } } },
+      reasoningProfile: "none",
+    },
+    intelligence: artificialAnalysis(28.7, "deepseek-v4-flash-non-reasoning"),
+    model: "deepseek-v4-flash",
+  },
+  {
+    callPolicy: {
+      providerOptions: { deepseek: { thinking: { type: "disabled" } } },
+      reasoningProfile: "none",
+    },
+    intelligence: artificialAnalysis(31.2, "deepseek-v4-pro-non-reasoning"),
+    model: "deepseek-v4-pro",
+  },
+] as const satisfies readonly LanguageModelConfig[];
 
-const GOOGLE_LANGUAGE_MODEL_IDS = ["gemini-3.1-flash-lite"] as const;
+const GOOGLE_LANGUAGE_MODELS = [
+  {
+    callPolicy: {
+      providerOptions: {
+        google: { thinkingConfig: { thinkingLevel: "minimal" } },
+      },
+      reasoningProfile: "minimal",
+    },
+    intelligence: artificialAnalysis(25, "gemini-3.1-flash-lite-minimal"),
+    model: "gemini-3.1-flash-lite",
+  },
+] as const satisfies readonly LanguageModelConfig[];
 
-const GROQ_LANGUAGE_MODEL_IDS = [
-  "openai/gpt-oss-120b",
-  "openai/gpt-oss-20b",
-  "qwen/qwen3.6-27b",
-] as const;
+const GROQ_LANGUAGE_MODELS = [
+  {
+    callPolicy: {
+      providerOptions: { groq: { reasoningEffort: "low" } },
+      reasoningProfile: "low",
+    },
+    intelligence: artificialAnalysis(14.9, "gpt-oss-120b-low"),
+    model: "openai/gpt-oss-120b",
+  },
+  {
+    callPolicy: {
+      providerOptions: { groq: { reasoningEffort: "low" } },
+      reasoningProfile: "low",
+    },
+    intelligence: artificialAnalysis(14.3, "gpt-oss-20b-low"),
+    model: "openai/gpt-oss-20b",
+  },
+  {
+    callPolicy: {
+      providerOptions: { groq: { reasoningEffort: "none" } },
+      reasoningProfile: "none",
+    },
+    intelligence: artificialAnalysis(30.5, "qwen3-6-27b-non-reasoning"),
+    model: "qwen/qwen3.6-27b",
+  },
+] as const satisfies readonly LanguageModelConfig[];
 
-const MISTRAL_LANGUAGE_MODEL_IDS = [
-  "mistral-medium-3.5",
-  "mistral-medium-latest",
-  "mistral-small-2603",
-  "mistral-small-latest",
-  "mistral-large-2512",
-  "mistral-large-latest",
-  "ministral-14b-2512",
-  "ministral-14b-latest",
-] as const;
+const MISTRAL_LANGUAGE_MODELS = [
+  {
+    callPolicy: {
+      providerOptions: { mistral: { reasoningEffort: "none" } },
+      reasoningProfile: "none",
+    },
+    intelligence: artificialAnalysis(30, "mistral-medium-3-5-reasoning"),
+    model: "mistral-medium-latest",
+  },
+  {
+    callPolicy: {
+      providerOptions: { mistral: { reasoningEffort: "none" } },
+      reasoningProfile: "none",
+    },
+    intelligence: artificialAnalysis(11, "mistral-small-3-2-non-reasoning"),
+    model: "mistral-small-latest",
+  },
+  {
+    callPolicy: { reasoningProfile: "none" },
+    intelligence: artificialAnalysis(16, "mistral-large-3-non-reasoning"),
+    model: "mistral-large-latest",
+  },
+] as const satisfies readonly LanguageModelConfig[];
 
-const OPENAI_LANGUAGE_MODEL_IDS = [
-  "gpt-5.5",
-  "gpt-5.4",
-  "gpt-5.4-pro",
-  "gpt-5.4-mini",
-  "gpt-5.4-nano",
-] as const;
+const OPENAI_LANGUAGE_MODELS = [
+  {
+    callPolicy: {
+      providerOptions: { openai: { reasoningEffort: "none" } },
+      reasoningProfile: "none",
+    },
+    intelligence: artificialAnalysis(35.4, "gpt-5-5-non-reasoning"),
+    model: "gpt-5.5",
+  },
+  {
+    callPolicy: {
+      providerOptions: { openai: { reasoningEffort: "none" } },
+      reasoningProfile: "none",
+    },
+    intelligence: artificialAnalysis(27.7, "gpt-5-4-non-reasoning"),
+    model: "gpt-5.4",
+  },
+  {
+    callPolicy: {
+      providerOptions: { openai: { reasoningEffort: "none" } },
+      reasoningProfile: "none",
+    },
+    intelligence: artificialAnalysis(16.6, "gpt-5-4-mini-non-reasoning"),
+    model: "gpt-5.4-mini",
+  },
+  {
+    callPolicy: {
+      providerOptions: { openai: { reasoningEffort: "none" } },
+      reasoningProfile: "none",
+    },
+    intelligence: artificialAnalysis(17.6, "gpt-5-4-nano-non-reasoning"),
+    model: "gpt-5.4-nano",
+  },
+] as const satisfies readonly LanguageModelConfig[];
 
-const ZAI_LANGUAGE_MODEL_IDS = ["glm-5.2"] as const;
+const ZAI_LANGUAGE_MODELS = [
+  {
+    callPolicy: {
+      providerOptions: { zhipu: { thinking: { type: "disabled" } } },
+      reasoningProfile: "none",
+    },
+    intelligence: artificialAnalysis(34.1, "glm-5-2-non-reasoning"),
+    model: "glm-5.2",
+  },
+] as const satisfies readonly LanguageModelConfig[];
 
 export const LANGUAGE_MODEL_MAP = {
-  ...mapLanguageModels("anthropic", ANTHROPIC_LANGUAGE_MODEL_IDS),
-  ...mapLanguageModels("cerebras", CEREBRAS_LANGUAGE_MODEL_IDS),
-  ...mapLanguageModels("deepseek", DEEPSEEK_LANGUAGE_MODEL_IDS),
-  ...mapLanguageModels("google", GOOGLE_LANGUAGE_MODEL_IDS),
-  ...mapLanguageModels("groq", GROQ_LANGUAGE_MODEL_IDS),
-  ...mapLanguageModels("mistral", MISTRAL_LANGUAGE_MODEL_IDS),
-  ...mapLanguageModels("openai", OPENAI_LANGUAGE_MODEL_IDS),
-  ...mapLanguageModels("zai", ZAI_LANGUAGE_MODEL_IDS),
+  ...mapLanguageModels("anthropic", ANTHROPIC_LANGUAGE_MODELS),
+  ...mapLanguageModels("cerebras", CEREBRAS_LANGUAGE_MODELS),
+  ...mapLanguageModels("deepseek", DEEPSEEK_LANGUAGE_MODELS),
+  ...mapLanguageModels("google", GOOGLE_LANGUAGE_MODELS),
+  ...mapLanguageModels("groq", GROQ_LANGUAGE_MODELS),
+  ...mapLanguageModels("mistral", MISTRAL_LANGUAGE_MODELS),
+  ...mapLanguageModels("openai", OPENAI_LANGUAGE_MODELS),
+  ...mapLanguageModels("zai", ZAI_LANGUAGE_MODELS),
 } as const satisfies Record<string, LanguageModelEntry>;
 
 export const resolveLanguageModelRoute = (

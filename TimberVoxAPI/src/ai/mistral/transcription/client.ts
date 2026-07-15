@@ -49,15 +49,15 @@ export const createMistralTranscriptionProvider = (config: {
         method: "POST",
       }
     );
-    const body = await readProviderResponse(
+    const { parsed: body, raw: providerResponse } = await readProviderResponse(
       "Mistral",
       response,
       MistralTranscriptionResponseSchema
     );
     const timedItems =
       body.segments?.map((item) => ({
-        confidence: item.score ?? undefined,
         endSeconds: item.end,
+        scores: { score: item.score ?? undefined },
         speaker: item.speaker_id ?? undefined,
         startSeconds: item.start,
         text: item.text,
@@ -66,6 +66,12 @@ export const createMistralTranscriptionProvider = (config: {
     const words = timestampGranularity === "word" ? timedItems : [];
 
     return {
+      audioEvents: [],
+      collections: mistralCollections({
+        diarize,
+        hasTimedItems: body.segments !== undefined,
+        timestampGranularity,
+      }),
       durationSeconds: body.usage.prompt_audio_seconds ?? undefined,
       language: body.language ?? undefined,
       providerMetadata: {
@@ -74,6 +80,7 @@ export const createMistralTranscriptionProvider = (config: {
         promptTokens: body.usage.prompt_tokens,
         totalTokens: body.usage.total_tokens,
       },
+      providerResponse,
       segments,
       speakerTurns: segments
         .filter((segment) => segment.speaker !== undefined)
@@ -84,8 +91,54 @@ export const createMistralTranscriptionProvider = (config: {
           text,
         })),
       text: body.text,
+      tokens: [],
+      usage: {
+        inputTokens: body.usage.prompt_tokens,
+        outputTokens: body.usage.completion_tokens,
+        totalTokens: body.usage.total_tokens,
+      },
       warnings: [],
       words,
     };
   },
 });
+
+const mistralCollections = (input: {
+  diarize: boolean;
+  hasTimedItems: boolean;
+  timestampGranularity: "segment" | "word";
+}) => ({
+  audioEvents: { availability: "unsupported" as const },
+  segments: requestedCollection(
+    input.timestampGranularity === "segment",
+    input.hasTimedItems,
+    "provider"
+  ),
+  speakerTurns: requestedCollection(
+    input.diarize && input.timestampGranularity === "segment",
+    input.hasTimedItems,
+    "derived"
+  ),
+  tokens: { availability: "unsupported" as const },
+  words: requestedCollection(
+    input.timestampGranularity === "word",
+    input.hasTimedItems,
+    "provider"
+  ),
+});
+
+const requestedCollection = (
+  requested: boolean,
+  returned: boolean,
+  source: "derived" | "provider"
+) => {
+  if (!requested) {
+    return { availability: "not_requested" as const };
+  }
+  return {
+    availability: returned
+      ? ("available" as const)
+      : ("provider_omitted" as const),
+    source,
+  };
+};

@@ -42,7 +42,7 @@ export const createDeepgramTranscriptionProvider = (config: {
       },
       method: "POST",
     });
-    const body = await readProviderResponse(
+    const { parsed: body, raw: providerResponse } = await readProviderResponse(
       "Deepgram",
       response,
       DeepgramTranscriptionResponseSchema
@@ -51,16 +51,19 @@ export const createDeepgramTranscriptionProvider = (config: {
     const alternative = channel?.alternatives.at(0);
     const words =
       alternative?.words?.map((word) => ({
-        confidence: word.confidence,
         endSeconds: word.end,
+        scores: {
+          confidence: word.confidence,
+          speakerConfidence: word.speaker_confidence,
+        },
         speaker: word.speaker,
         startSeconds: word.start,
         text: word.punctuated_word ?? word.word,
       })) ?? [];
     const segments =
       body.results.utterances?.map((utterance) => ({
-        confidence: utterance.confidence,
         endSeconds: utterance.end,
+        scores: { confidence: utterance.confidence },
         speaker: utterance.speaker,
         startSeconds: utterance.start,
         text: utterance.transcript,
@@ -76,20 +79,51 @@ export const createDeepgramTranscriptionProvider = (config: {
         : speakerTurnsFromWords(words);
 
     return {
+      audioEvents: [],
+      collections: deepgramCollections(
+        alternative?.words,
+        body.results.utterances
+      ),
       durationSeconds: body.metadata?.duration,
       language: channel?.detected_language,
       providerMetadata: {
         requestId: body.metadata?.request_id,
         sha256: body.metadata?.sha256,
       },
+      providerResponse,
       segments,
       speakerTurns,
       text: alternative?.transcript ?? "",
+      tokens: [],
+      usage: {},
       warnings: [],
       words,
     };
   },
 });
+
+const deepgramCollections = (
+  words: unknown[] | undefined,
+  utterances: unknown[] | undefined
+) => ({
+  audioEvents: { availability: "unsupported" as const },
+  segments: {
+    availability: providerAvailability(utterances),
+    source: "provider" as const,
+  },
+  speakerTurns: {
+    availability: providerAvailability(utterances ?? words),
+    source: "derived" as const,
+  },
+  tokens: { availability: "unsupported" as const },
+  words: {
+    availability: providerAvailability(words),
+    source: "provider" as const,
+  },
+});
+
+const providerAvailability = (value: unknown[] | undefined) =>
+  value === undefined ? ("provider_omitted" as const) : ("available" as const);
 
 const appendDeepgramOptions = (
   url: URL,

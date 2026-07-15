@@ -9,7 +9,6 @@ import type { DeepgramRealtimeOptions } from "../ai/deepgram/realtime/client";
 import type { RealtimeAsrProviderId } from "../ai/models/types";
 import { createRealtimeTranscriptionModel } from "../ai/realtime/model";
 import {
-  finalRealtimeTranscript,
   type RealtimeTranscriptEvent,
   realtimeTranscriptEventFromStreamPart,
 } from "../ai/realtime/normalize";
@@ -21,9 +20,24 @@ import {
 } from "../ai/realtime/protocol";
 import type { Env } from "../bindings";
 import {
+  buildRealtimeArtifact,
   persistRealtimeResult,
   type RealtimePersistResult,
+  type RealtimeResultInput,
 } from "./realtime-result";
+
+interface RealtimeStreamSummary {
+  detectedLanguage?: string;
+  durationSeconds?: number;
+  providerMetadata: Record<string, unknown>;
+  responses: unknown[];
+  resultSegments: Array<{
+    endSecond: number;
+    startSecond: number;
+    text: string;
+  }>;
+  warnings: unknown[];
+}
 
 interface RealtimeSessionConfig {
   clientId: string;
@@ -128,13 +142,21 @@ export class RealtimeSession {
   private audioBytes = 0;
   private readonly env: Env;
   private eventSequence = 0;
+  private firstResultAt: string | null = null;
   private messageCount = 0;
+  private readonly providerEvents: unknown[] = [];
   private readonly state: DurableObjectState;
   private startedAt: string | null = null;
   private streamAbortController: AbortController | null = null;
   private streamConsumptionPromise: Promise<void> | null = null;
   private streamError: string | null = null;
   private streamResult: StreamTranscriptionResult | null = null;
+  private streamSummary: RealtimeStreamSummary = {
+    providerMetadata: {},
+    responses: [],
+    resultSegments: [],
+    warnings: [],
+  };
   private terminalEventPromise: Promise<RealtimeSessionTerminalEvent> | null =
     null;
   private readonly transcriptEvents: RealtimeTranscriptEvent[] = [];
@@ -194,6 +216,7 @@ export class RealtimeSession {
     this.streamResult = experimental_streamTranscribe({
       abortSignal: this.streamAbortController.signal,
       audio: audioInput.readable,
+      includeRawChunks: true,
       inputAudioFormat: {
         ...(config.sampleRate ? { rate: config.sampleRate } : {}),
         type: inputAudioType(config.encoding),
@@ -324,6 +347,29 @@ export class RealtimeSession {
         this.handleTranscriptionStreamPart(socket, config, part);
       }
       await result.text;
+      const [
+        resultSegments,
+        detectedLanguage,
+        durationSeconds,
+        warnings,
+        responses,
+        providerMetadata,
+      ] = await Promise.all([
+        result.segments,
+        result.language,
+        result.durationInSeconds,
+        result.warnings,
+        result.responses,
+        result.providerMetadata,
+      ]);
+      this.streamSummary = {
+        detectedLanguage,
+        durationSeconds,
+        providerMetadata,
+        responses,
+        resultSegments,
+        warnings,
+      };
       await this.deliverTerminalSession(socket, config, "succeeded");
       closeSocket(socket, 1000, "realtime session completed");
     } catch (error) {
@@ -342,10 +388,15 @@ export class RealtimeSession {
     if (part.type === "error") {
       throw part.error;
     }
+    if (part.type === "raw") {
+      this.providerEvents.push(part.rawValue);
+      return;
+    }
     const event = realtimeTranscriptEventFromStreamPart(part);
     if (!event) {
       return;
     }
+    this.firstResultAt ??= new Date().toISOString();
     this.transcriptEvents.push(event);
     const protocolEvent = transcriptProtocolEvent(
       config.sessionId,
@@ -429,18 +480,30 @@ export class RealtimeSession {
     error?: string
   ): Promise<RealtimeSessionTerminalEvent> {
     const endedAt = new Date().toISOString();
-    const startedAt = this.startedAt ?? endedAt;
+    const { startedAt } = this;
+    if (!startedAt) {
+      throw new Error("realtime session has no start timestamp");
+    }
+    const input: RealtimeResultInput = {
+      audioBytes: this.audioBytes,
+      detectedLanguage: this.streamSummary.detectedLanguage,
+      durationSeconds: this.streamSummary.durationSeconds,
+      endedAt,
+      error,
+      events: this.transcriptEvents,
+      firstResultAt: this.firstResultAt,
+      messageCount: this.messageCount,
+      providerEvents: this.providerEvents,
+      providerMetadata: this.streamSummary.providerMetadata,
+      responses: this.streamSummary.responses,
+      resultSegments: this.streamSummary.resultSegments,
+      startedAt,
+      status,
+      warnings: this.streamSummary.warnings,
+    };
     let persisted: RealtimePersistResult;
     try {
-      persisted = await persistRealtimeResult(this.env, config, {
-        audioBytes: this.audioBytes,
-        endedAt,
-        error,
-        events: this.transcriptEvents,
-        messageCount: this.messageCount,
-        startedAt,
-        status,
-      });
+      persisted = await persistRealtimeResult(this.env, config, input);
     } catch (persistError) {
       console.error(
         JSON.stringify({
@@ -454,44 +517,33 @@ export class RealtimeSession {
       );
       return terminalSessionEvent(
         {
-          audioBytes: this.audioBytes,
-          endedAt,
           error: `could not persist realtime result: ${
             persistError instanceof Error
               ? persistError.message
               : String(persistError)
           }`,
           errorCode: "session_error",
-          language: config.language,
-          messageCount: this.messageCount,
-          model: config.model,
-          provider: config.provider,
-          sampleRate: config.sampleRate,
+          result: buildRealtimeArtifact(config, {
+            ...input,
+            error: `could not persist realtime result: ${
+              persistError instanceof Error
+                ? persistError.message
+                : String(persistError)
+            }`,
+            status: "failed",
+          }),
           sessionId: config.sessionId,
-          startedAt,
           status: "failed",
-          transcript: finalRealtimeTranscript(
-            config.provider,
-            this.transcriptEvents
-          ),
         },
         this.nextSequence()
       );
     }
     return terminalSessionEvent(
       {
-        audioBytes: this.audioBytes,
-        endedAt,
         error,
-        language: config.language,
-        messageCount: this.messageCount,
-        model: config.model,
-        provider: config.provider,
-        sampleRate: config.sampleRate,
+        result: persisted.artifact,
         sessionId: config.sessionId,
-        startedAt,
         status,
-        transcript: persisted.transcript,
       },
       this.nextSequence()
     );

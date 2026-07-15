@@ -12,13 +12,13 @@ final class LocalModelLiveAcceptanceTests: XCTestCase {
       "Touch /tmp/timbervox-live-local-model to run local batch acceptance."
     )
 
-    let backend = FluidAudioLocalModelAssetBackend()
-    let asset = LocalModelAsset.batch(.parakeetTdtCtc110M)
+    let backend = FluidAudioModelAssetBackend()
+    let asset = FluidAudioModelAsset.batch(.parakeetTdtCtc110M)
     try await backend.prepare(asset) { _ in }
     let preparedState = await backend.state(of: asset)
     XCTAssertEqual(preparedState, .verified)
 
-    let relaunchedBackend = FluidAudioLocalModelAssetBackend()
+    let relaunchedBackend = FluidAudioModelAssetBackend()
     let relaunchedState = await relaunchedBackend.state(of: asset)
     XCTAssertEqual(relaunchedState, .verified)
 
@@ -27,12 +27,12 @@ final class LocalModelLiveAcceptanceTests: XCTestCase {
     ModelHub.offlineMode = true
     defer { ModelHub.offlineMode = false }
 
-    let transcript = try await LocalBatchTranscriptionClient().transcribe(
+    let transcript = try await FluidAudioBatchTranscriber().transcribe(
       wavAt: fixture,
       route: .parakeetTdtCtc110M
     )
 
-    XCTAssertTrue(transcript.lowercased().contains("purple elephant"))
+    XCTAssertTrue(transcript.displayText.lowercased().contains("purple elephant"))
   }
 
   func testHummingbirdPackageDownloadsAndPersists() async throws {
@@ -41,12 +41,12 @@ final class LocalModelLiveAcceptanceTests: XCTestCase {
       "Touch /tmp/timbervox-live-local-package to run the complete package acceptance."
     )
 
-    let store = await LocalModelPackageStore(backend: FluidAudioLocalModelAssetBackend())
+    let store = await FluidAudioModelPackageStore(backend: FluidAudioModelAssetBackend())
     await store.download(modelID: "local-hummingbird")
     let state = await store.state(for: "local-hummingbird")
     XCTAssertEqual(state, .ready)
 
-    let relaunchedStore = await LocalModelPackageStore(backend: FluidAudioLocalModelAssetBackend())
+    let relaunchedStore = await FluidAudioModelPackageStore(backend: FluidAudioModelAssetBackend())
     await relaunchedStore.refresh(modelID: "local-hummingbird")
     let relaunchedState = await relaunchedStore.state(for: "local-hummingbird")
     XCTAssertEqual(relaunchedState, .ready)
@@ -62,11 +62,11 @@ final class LocalModelLiveAcceptanceTests: XCTestCase {
     ModelHub.offlineMode = true
     defer { ModelHub.offlineMode = false }
 
-    let transcript = try await LocalBatchTranscriptionClient().transcribe(
+    let transcript = try await FluidAudioBatchTranscriber().transcribe(
       wavAt: fixture,
       route: route
     )
-    try assertEnglishTranscript(transcript)
+    try assertEnglishTranscript(transcript.displayText)
   }
 
   func testNemotronEnglish560DownloadsAndTranscribes() async throws {
@@ -98,11 +98,11 @@ final class LocalModelLiveAcceptanceTests: XCTestCase {
     ModelHub.offlineMode = true
     defer { ModelHub.offlineMode = false }
 
-    let session = LocalRealtimeTranscriptionSession.shared
+    let session = FluidAudioRealtimeTranscriptionSession.shared
     try await session.start(route: route, language: "ja") { _ in }
     try await session.sendPCM(samples)
     let transcript = try await session.finish()
-    XCTAssertFalse(transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+    XCTAssertFalse(transcript.displayText.isEmpty)
   }
 
   private func assertRealtimeTranscript(
@@ -116,15 +116,15 @@ final class LocalModelLiveAcceptanceTests: XCTestCase {
     ModelHub.offlineMode = true
     defer { ModelHub.offlineMode = false }
 
-    let session = LocalRealtimeTranscriptionSession.shared
+    let session = FluidAudioRealtimeTranscriptionSession.shared
     try await session.start(route: route, language: language) { _ in }
     try await session.sendPCM(samples)
     let transcript = try await session.finish()
-    try assertEnglishTranscript(transcript)
+    try assertEnglishTranscript(transcript.displayText)
   }
 
-  private func prepare(_ asset: LocalModelAsset) async throws {
-    let backend = FluidAudioLocalModelAssetBackend()
+  private func prepare(_ asset: FluidAudioModelAsset) async throws {
+    let backend = FluidAudioModelAssetBackend()
     try await backend.prepare(asset) { _ in }
     let state = await backend.state(of: asset)
     XCTAssertEqual(state, .verified)
@@ -230,16 +230,19 @@ final class LocalWorkflowLiveTests: XCTestCase {
     modeStore.activeModeID = "local-workflow"
     let transcriptStore = TranscriptStore(directory: artifacts)
     let offlineBaseURL = try XCTUnwrap(URL(string: "http://127.0.0.1:1"))
-    let cloud = CloudClients(baseURL: offlineBaseURL)
     let catalogStore = TranscriptionModelCatalogStore(
-      cloudCatalog: CloudModelCatalogStore(client: cloud.catalog)
+      catalog: ModelCatalogStore(
+        client: ModelCatalogAPIClient(baseURL: offlineBaseURL)
+      )
     )
     let workflow = DictationWorkflow(
-      cloud: cloud,
+      transcription: TranscriptionRuntime(
+        baseURL: offlineBaseURL,
+        fluidAudioBatch: FluidAudioBatchTranscriber()
+      ),
       transcriptStore: transcriptStore,
       modeStore: modeStore,
-      catalogStore: catalogStore,
-      localBatchTranscription: LocalBatchTranscriptionClient()
+      catalogStore: catalogStore
     )
     return (workflow, transcriptStore)
   }

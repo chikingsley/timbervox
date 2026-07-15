@@ -18,17 +18,62 @@ const AsrRouteSpec = z
   })
   .openapi("AsrRouteSpec");
 
+const IntelligenceSpec = z
+  .object({
+    display_score: z.number().min(0).max(10),
+    index: z.number(),
+    measured_at: z.string(),
+    profile: z.string(),
+    source: z.literal("artificial-analysis"),
+    source_version: z.string(),
+  })
+  .openapi("LanguageModelIntelligenceSpec");
+
+const AccuracySpec = z
+  .object({
+    benchmark: z.string(),
+    metric: z.literal("wer"),
+    source: z.enum([
+      "fluid-audio",
+      "provider-published",
+      "route-capability",
+      "timbervox-benchmark",
+    ]),
+    value: z.number().nonnegative(),
+  })
+  .openapi("ModelAccuracyPresentationSpec");
+
+const SpeedSpec = z
+  .object({
+    approximate: z.boolean(),
+    kind: z.enum(["effective-tps", "realtime", "rtfx"]),
+    measured_at: z.string().optional(),
+    profile: z.string().optional(),
+    source: z.enum([
+      "fluid-audio",
+      "provider-published",
+      "route-capability",
+      "timbervox-benchmark",
+    ]),
+    value: z.number().nonnegative().optional(),
+  })
+  .openapi("ModelSpeedPresentationSpec");
+
 const ModelSpec = z
   .object({
+    accuracy: AccuracySpec.optional(),
     id: z.string(),
+    intelligence: IntelligenceSpec.optional(),
     kind: z.enum(["language", "transcription"]),
     provider: z.string(),
+    reasoning_profile: z.enum(["low", "medium", "minimal", "none"]).optional(),
     routes: z
       .object({
         batch: AsrRouteSpec.optional(),
         realtime: AsrRouteSpec.optional(),
       })
       .optional(),
+    speed: SpeedSpec.optional(),
     upstream_model: z.string(),
   })
   .openapi("ModelSpec");
@@ -36,6 +81,7 @@ const ModelSpec = z
 const ModelsResponse = z
   .object({
     models: z.array(ModelSpec),
+    presentation_schema_version: z.literal(1),
   })
   .openapi("ModelsResponse");
 
@@ -72,13 +118,48 @@ const routesView = (routes: PublicModelSpec["routes"]) =>
       }
     : undefined;
 
-const modelView = (model: PublicModelSpec) => ({
-  id: model.id,
-  kind: model.kind,
-  provider: model.provider,
-  routes: routesView(model.routes),
-  upstream_model: model.upstreamModel,
-});
+export const intelligenceDisplayScore = (index: number): number =>
+  Math.round(index) / 10;
+
+const modelView = (model: PublicModelSpec) => {
+  const languageMetadata =
+    model.kind === "language"
+      ? {
+          intelligence: model.intelligence
+            ? {
+                display_score: intelligenceDisplayScore(
+                  model.intelligence.index
+                ),
+                index: model.intelligence.index,
+                measured_at: model.intelligence.measuredAt,
+                profile: model.intelligence.profile,
+                source: model.intelligence.source,
+                source_version: model.intelligence.sourceVersion,
+              }
+            : undefined,
+          reasoning_profile: model.reasoningProfile,
+        }
+      : {};
+  return {
+    accuracy: model.accuracy,
+    id: model.id,
+    ...languageMetadata,
+    kind: model.kind,
+    provider: model.provider,
+    routes: routesView(model.routes),
+    speed: model.speed
+      ? {
+          approximate: model.speed.approximate,
+          kind: model.speed.kind,
+          measured_at: model.speed.measuredAt,
+          profile: model.speed.profile,
+          source: model.speed.source,
+          value: model.speed.value,
+        }
+      : undefined,
+    upstream_model: model.upstreamModel,
+  };
+};
 
 const providerIsConfigured = (env: Env, provider: string): boolean => {
   switch (provider) {
@@ -108,14 +189,16 @@ const providerIsConfigured = (env: Env, provider: string): boolean => {
 };
 
 export const registerModelRoutes = (app: App): void => {
-  app.openapi(modelsRoute, (c) =>
-    c.json(
+  app.openapi(modelsRoute, (c) => {
+    const models = publicModelCatalog().filter((model) =>
+      providerIsConfigured(c.env, model.provider)
+    );
+    return c.json(
       {
-        models: publicModelCatalog()
-          .filter((model) => providerIsConfigured(c.env, model.provider))
-          .map(modelView),
+        models: models.map(modelView),
+        presentation_schema_version: 1 as const,
       },
       200
-    )
-  );
+    );
+  });
 };

@@ -23,6 +23,9 @@
 - Use stock SwiftUI/AppKit controls first: `NavigationSplitView`, `List`, `Form`, `Section`, `Picker`, `Toggle`, `TextField`, `Button`, `Table`, and `.searchable`.
 - Custom composition is allowed only when no stock control satisfies the real interaction. Isolate it in a named component and verify it visually.
 - AppKit is appropriate for macOS behavior SwiftUI does not supply, such as non-activating panels or a true combo box.
+- Use the shadcn-style open-code model for custom UI. Copy reviewed SwiftCN primitives individually into `TimberVox/Features/Components/UI`; do not add SwiftCN as a package dependency.
+- Put reusable TimberVox composites in `TimberVox/Features/Components` and feature-only composites under that feature's `Components` directory. Keep one primary component per Swift file; screens compose components and connect runtime state.
+- Before adopting a SwiftCN primitive, compare it with the current upstream shadcn component and verify the native macOS interaction. Do not treat source presence in `swiftcn-ui` as validation.
 
 ## Required gates
 

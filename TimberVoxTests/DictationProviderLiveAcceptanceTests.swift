@@ -20,8 +20,8 @@ final class DictationProviderLiveAcceptanceTests: XCTestCase {
     let speechURL = artifacts.appendingPathComponent("system-speech.aiff")
     let speechDuration = try LiveAudioTest.writeSpokenPhrase(Self.phrase, to: speechURL)
 
-    let session = RealtimeTranscriptionSession {
-      CloudClients.production.makeRealtimeTranscriptionClient()
+    let session = CloudRealtimeTranscriptionSession {
+      CloudRealtimeTranscriptionClient(baseURL: APIConnector.productionBaseURL)
     }
     try await session.start(
       model: Self.model,
@@ -43,18 +43,18 @@ final class DictationProviderLiveAcceptanceTests: XCTestCase {
       "The mixed recording must contain the played speech, not silence."
     )
 
-    let realtimeTranscript = try await session.finish()
+    let realtimeTranscript = try await session.finish().displayText
     try save(realtimeTranscript, as: "realtime-transcript.txt", in: artifacts)
 
-    let batch = try await CloudBatchTranscriptionClient.production.transcribe(
+    let batch = try await CloudBatchTranscriber.production.transcribe(
       wavAt: recording.url,
       model: Self.model,
       language: "en"
     )
-    try save(batch.rawText, as: "batch-transcript.txt", in: artifacts)
+    try save(batch.displayText, as: "batch-transcript.txt", in: artifacts)
 
     let realtimeHits = LiveAudioTest.matchedKeywords(Self.keywords, in: realtimeTranscript)
-    let batchHits = LiveAudioTest.matchedKeywords(Self.keywords, in: batch.rawText)
+    let batchHits = LiveAudioTest.matchedKeywords(Self.keywords, in: batch.displayText)
     XCTAssertGreaterThanOrEqual(
       realtimeHits.count,
       3,
@@ -63,7 +63,7 @@ final class DictationProviderLiveAcceptanceTests: XCTestCase {
     XCTAssertGreaterThanOrEqual(
       batchHits.count,
       3,
-      "Batch transcript missed the spoken phrase. Transcript: \(batch.rawText)"
+      "Batch transcript missed the spoken phrase. Transcript: \(batch.displayText)"
     )
   }
 
@@ -80,8 +80,8 @@ final class DictationProviderLiveAcceptanceTests: XCTestCase {
     let speechDuration = try LiveAudioTest.writeSpokenPhrase(longPhrase, to: speechURL)
     XCTAssertGreaterThan(speechDuration, 40, "The soak fixture must be a genuinely long stream.")
 
-    let session = RealtimeTranscriptionSession {
-      CloudClients.production.makeRealtimeTranscriptionClient()
+    let session = CloudRealtimeTranscriptionSession {
+      CloudRealtimeTranscriptionClient(baseURL: APIConnector.productionBaseURL)
     }
     try await session.start(
       model: Self.model,
@@ -95,17 +95,17 @@ final class DictationProviderLiveAcceptanceTests: XCTestCase {
       into: artifacts,
       streamingTo: session
     )
-    let realtimeTranscript = try await session.finish()
+    let realtimeTranscript = try await session.finish().displayText
     try save(realtimeTranscript, as: "realtime-transcript.txt", in: artifacts)
 
-    let batch = try await CloudBatchTranscriptionClient.production.transcribe(
+    let batch = try await CloudBatchTranscriber.production.transcribe(
       wavAt: recording.url,
       model: Self.model,
       language: "en"
     )
-    try save(batch.rawText, as: "batch-transcript.txt", in: artifacts)
+    try save(batch.displayText, as: "batch-transcript.txt", in: artifacts)
 
-    for transcript in [realtimeTranscript, batch.rawText] {
+    for transcript in [realtimeTranscript, batch.displayText] {
       let lowered = transcript.lowercased()
       XCTAssertTrue(lowered.contains("fox"), "The opening speech is missing: \(transcript.prefix(200))")
       XCTAssertTrue(
@@ -119,7 +119,7 @@ final class DictationProviderLiveAcceptanceTests: XCTestCase {
     playing speechURL: URL,
     speechDuration: TimeInterval,
     into artifacts: URL,
-    streamingTo session: RealtimeTranscriptionSession
+    streamingTo session: CloudRealtimeTranscriptionSession
   ) async throws -> (url: URL, duration: TimeInterval) {
     let recorder = DictationAudioRecorder()
     let recordingURL = artifacts.appendingPathComponent("mixed.wav")

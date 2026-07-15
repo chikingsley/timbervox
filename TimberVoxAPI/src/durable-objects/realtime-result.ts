@@ -1,9 +1,10 @@
 import { recordUsageEvent } from "../accounting/usage";
 import type { RealtimeAsrProviderId } from "../ai/models/types";
+import type { RealtimeTranscriptEvent } from "../ai/realtime/normalize";
 import {
-  finalRealtimeTranscript,
-  type RealtimeTranscriptEvent,
-} from "../ai/realtime/normalize";
+  realtimeTranscriptionArtifact,
+  type TranscriptionArtifact,
+} from "../ai/transcription/artifact";
 import type { Env } from "../bindings";
 
 export interface RealtimeResultConfig {
@@ -20,18 +21,28 @@ export interface RealtimeResultConfig {
 
 export interface RealtimeResultInput {
   audioBytes: number;
+  detectedLanguage?: string;
+  durationSeconds?: number;
   endedAt: string;
   error?: string | null;
   events: RealtimeTranscriptEvent[];
+  firstResultAt?: string | null;
   messageCount: number;
+  providerEvents: unknown[];
+  providerMetadata: Record<string, unknown>;
+  responses: unknown[];
+  resultSegments: Array<{
+    endSecond: number;
+    startSecond: number;
+    text: string;
+  }>;
   startedAt: string;
   status: "failed" | "succeeded";
+  warnings: unknown[];
 }
 
 export interface RealtimePersistResult {
-  transcript: string;
-  transcriptJsonKey: string;
-  transcriptTextKey: string;
+  artifact: TranscriptionArtifact;
 }
 
 const contentTypeJson = "application/json";
@@ -52,31 +63,13 @@ export const persistRealtimeResult = async (
   config: RealtimeResultConfig,
   input: RealtimeResultInput
 ): Promise<RealtimePersistResult> => {
-  const transcript = finalRealtimeTranscript(config.provider, input.events);
+  const artifact = buildRealtimeArtifact(config, input);
+  const transcript = artifact.text;
   const prefix = `realtime/${config.userId}/${config.sessionId}`;
-  const transcriptJsonKey = `${prefix}/transcript.json`;
+  const transcriptJsonKey = `${prefix}/artifact.json`;
   const transcriptTextKey = `${prefix}/transcript.txt`;
-  const resultJson = {
-    audio_bytes: input.audioBytes,
-    audio_seconds: audioSeconds(input.audioBytes, config.sampleRate),
-    client_id: config.clientId,
-    credential_id: config.credentialId,
-    ended_at: input.endedAt,
-    error: input.error ?? null,
-    events: input.events,
-    language: config.language,
-    message_count: input.messageCount,
-    model: config.model,
-    provider: config.provider,
-    session_id: config.sessionId,
-    started_at: input.startedAt,
-    status: input.status,
-    transcript,
-    upstream_model: config.upstreamModel,
-    user_id: config.userId,
-  };
 
-  await env.ARTIFACTS.put(transcriptJsonKey, JSON.stringify(resultJson), {
+  await env.ARTIFACTS.put(transcriptJsonKey, JSON.stringify(artifact), {
     httpMetadata: { contentType: contentTypeJson },
   });
   await env.ARTIFACTS.put(transcriptTextKey, transcript, {
@@ -147,5 +140,32 @@ export const persistRealtimeResult = async (
     userId: config.userId,
   });
 
-  return { transcript, transcriptJsonKey, transcriptTextKey };
+  return { artifact };
 };
+
+export const buildRealtimeArtifact = (
+  config: RealtimeResultConfig,
+  input: RealtimeResultInput
+): TranscriptionArtifact =>
+  realtimeTranscriptionArtifact({
+    audioBytes: input.audioBytes,
+    completedAt: input.endedAt,
+    detectedLanguage: input.detectedLanguage,
+    durationSeconds: input.durationSeconds,
+    error: input.error,
+    events: input.events,
+    firstResultAt: input.firstResultAt,
+    messageCount: input.messageCount,
+    model: config.model,
+    provider: config.provider,
+    providerEvents: input.providerEvents,
+    providerMetadata: input.providerMetadata,
+    requestedLanguage: config.language,
+    responses: input.responses,
+    resultSegments: input.resultSegments,
+    runId: config.sessionId,
+    sampleRate: config.sampleRate,
+    startedAt: input.startedAt,
+    upstreamModel: config.upstreamModel,
+    warnings: input.warnings,
+  });

@@ -6,17 +6,17 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "timbervox",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "ios": {
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.chiejimofor.timbervox",
+      "buildNumber": "82",
       "appleTeamId": "XM69J99HWP",
-      "supportsTablet": true,
+      "supportsTablet": false,
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "NSMicrophoneUsageDescription": "TimberVox records your voice while a dictation session is active.",
-        "UIBackgroundModes": [
-          "audio"
-        ]
+        "UIBackgroundModes": ["audio"]
       },
       "entitlements": {
         "com.apple.security.application-groups": [
@@ -34,6 +34,7 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
+      "bundler": "metro",
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
@@ -54,12 +55,48 @@
           "enableBackgroundRecording": true
         }
       ],
-      "@bacons/apple-targets",
-      "expo-secure-store"
+      "expo-sqlite",
+      [
+        "react-native-nano-icons",
+        {
+          "iconSets": [
+            {
+              "fontFamily": "TimberVoxProviders",
+              "inputDir": "../../Shared/ProviderIcons",
+              "outputDir": "./assets/icons/nanoicons"
+            }
+          ]
+        }
+      ],
+      "@bacons/apple-targets"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "bundleIdentifier": "com.chiejimofor.timbervox.keyboard",
+                  "targetName": "TimberVoxKeyboard",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.chiejimofor.timbervox"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "daa3207f-0de1-461d-8c79-1928a60a05ec"
+      }
+    },
+    "owner": "peacockery-studio"
   }
 }

@@ -23,6 +23,11 @@ final class ModeStore {
     modes.first { $0.id == activeModeID } ?? modes.first ?? .defaultMode(defaults: defaults)
   }
 
+  func mode(forSourceApplicationBundleIdentifier bundleIdentifier: String?) -> DictationMode {
+    guard let bundleIdentifier else { return activeMode }
+    return modes.first { $0.activationBundleIdentifiers.contains(bundleIdentifier) } ?? activeMode
+  }
+
   init(defaults: UserDefaults = .standard) {
     self.defaults = defaults
     let loadedModes: [DictationMode]
@@ -54,6 +59,7 @@ final class ModeStore {
     let newMode = DictationMode(
       id: newID,
       name: template.textTransformPreset.label,
+      activationBundleIdentifiers: [],
       audioModelID: template.audioModelID,
       languageCode: template.languageCode,
       realtimeEnabled: template.realtimeEnabled,
@@ -78,6 +84,7 @@ final class ModeStore {
       name: "\(template.name) Copy",
       nameIsCustomized: true,
       iconSystemName: template.iconSystemName,
+      activationBundleIdentifiers: template.activationBundleIdentifiers,
       audioModelID: template.audioModelID,
       languageCode: template.languageCode,
       realtimeEnabled: template.realtimeEnabled,
@@ -113,6 +120,11 @@ final class ModeStore {
   func updateMode(id: String, _ update: (inout DictationMode) -> Void) {
     guard let index = modes.firstIndex(where: { $0.id == id }) else { return }
     update(&modes[index])
+  }
+
+  func ensureMode(_ mode: DictationMode) {
+    guard self.mode(id: mode.id) == nil else { return }
+    modes.append(mode)
   }
 
   private func saveModes() {

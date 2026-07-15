@@ -13,15 +13,11 @@ final class LocalModelEnduranceLiveTests: XCTestCase {
     ModelHub.offlineMode = true
     defer { ModelHub.offlineMode = false }
 
-    do {
-      _ = try await LocalBatchTranscriptionClient.shared.transcribe(
-        wavAt: fixture,
-        route: .parakeetTdtCtc110M
-      )
-      XCTFail("Silent audio produced a transcript.")
-    } catch LocalTranscriptionError.emptyResult {
-      // The real model correctly reported no speech.
-    }
+    let artifact = try await FluidAudioBatchTranscriber.shared.transcribe(
+      wavAt: fixture,
+      route: .parakeetTdtCtc110M
+    )
+    XCTAssertTrue(artifact.displayText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
   }
 
   func testHummingbirdTranscribesLongSpeechThroughTheFinalPhrase() async throws {
@@ -36,13 +32,13 @@ final class LocalModelEnduranceLiveTests: XCTestCase {
     ModelHub.offlineMode = true
     defer { ModelHub.offlineMode = false }
 
-    let transcript = try await LocalBatchTranscriptionClient.shared.transcribe(
+    let transcript = try await FluidAudioBatchTranscriber.shared.transcribe(
       wavAt: fixture,
       route: .parakeetTdtCtc110M
     )
-    let normalized = normalize(transcript)
-    XCTAssertTrue(normalized.contains("elephant"), transcript)
-    XCTAssertTrue(normalized.contains("waterfall"), transcript)
+    let normalized = normalize(transcript.displayText)
+    XCTAssertTrue(normalized.contains("elephant"), transcript.displayText)
+    XCTAssertTrue(normalized.contains("waterfall"), transcript.displayText)
   }
 
   func testNemotronCancellationCanStartAFreshRealSession() async throws {
@@ -52,7 +48,7 @@ final class LocalModelEnduranceLiveTests: XCTestCase {
     let fixture = try makeSpeechFixture(text: "Purple elephant marmalade sandwich")
     defer { try? FileManager.default.removeItem(at: fixture) }
     let samples = try AudioConverter().resampleAudioFile(fixture)
-    let session = LocalRealtimeTranscriptionSession.shared
+    let session = FluidAudioRealtimeTranscriptionSession.shared
     ModelHub.offlineMode = true
     defer { ModelHub.offlineMode = false }
 
@@ -63,7 +59,7 @@ final class LocalModelEnduranceLiveTests: XCTestCase {
     try await session.start(route: route, language: "en") { _ in }
     try await session.sendPCM(samples)
     let transcript = try await session.finish()
-    XCTAssertTrue(normalize(transcript).contains("elephant"), transcript)
+    XCTAssertTrue(normalize(transcript.displayText).contains("elephant"), transcript.displayText)
   }
 
   func testFluidAudioOfflinePreparationFailureIsBounded() async throws {
@@ -87,8 +83,8 @@ final class LocalModelEnduranceLiveTests: XCTestCase {
     }
   }
 
-  private func prepare(_ asset: LocalModelAsset) async throws {
-    let backend = FluidAudioLocalModelAssetBackend()
+  private func prepare(_ asset: FluidAudioModelAsset) async throws {
+    let backend = FluidAudioModelAssetBackend()
     try await backend.prepare(asset) { _ in }
     let state = await backend.state(of: asset)
     XCTAssertEqual(state, .verified)

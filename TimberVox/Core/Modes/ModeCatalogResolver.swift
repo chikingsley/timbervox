@@ -60,28 +60,29 @@ enum ModeCatalogResolver {
   ) throws -> DictationExecutionPlan {
     let resolvedMode = mode
     guard let model = catalog.first(where: { $0.id == resolvedMode.audioModelID }) else {
-      throw TimberVoxCloudError.configuration("Unknown audio model: \(mode.audioModelID)")
+      throw TranscriptionRuntimeError.configuration("Unknown audio model: \(mode.audioModelID)")
     }
     let transport: DictationExecutionPlan.Transport = resolvedMode.realtimeEnabled ? .realtime : .batch
     guard let route = route(for: transport, model: model) else {
       let routeName = transport == .realtime ? "realtime" : "batch"
-      throw TimberVoxCloudError.configuration("\(model.displayName) does not have a \(routeName) route.")
+      throw TranscriptionRuntimeError.configuration("\(model.displayName) does not have a \(routeName) route.")
     }
     guard !route.supportedLanguages.isEmpty else {
-      throw TimberVoxCloudError.configuration("\(model.displayName) has no published supported languages.")
+      throw TranscriptionRuntimeError.configuration("\(model.displayName) has no published supported languages.")
     }
     if resolvedMode.languageCode == nil, !route.supportsAutomaticLanguage {
-      throw TimberVoxCloudError.configuration("\(model.displayName) does not support automatic language selection.")
+      throw TranscriptionRuntimeError.configuration(
+        "\(model.displayName) does not support automatic language selection.")
     }
     if let languageCode = resolvedMode.languageCode,
       !route.supportedLanguages.contains(languageCode)
     {
-      throw TimberVoxCloudError.configuration(
+      throw TranscriptionRuntimeError.configuration(
         "\(model.displayName) does not support \(ModeLanguageLabel.name(for: languageCode))."
       )
     }
     if resolvedMode.diarizationEnabled, !route.supportsDiarization {
-      throw TimberVoxCloudError.configuration("\(model.displayName) does not support diarization on this route.")
+      throw TranscriptionRuntimeError.configuration("\(model.displayName) does not support diarization on this route.")
     }
     return DictationExecutionPlan(mode: resolvedMode, route: route, transport: transport)
   }

@@ -63,6 +63,16 @@ struct DictationContextSnapshot: Codable, Equatable, Sendable {
   var attachments: [DictationContextAttachment]
 }
 
+enum DictationContextSnapshotCoders {
+  static func encode(_ snapshot: DictationContextSnapshot) throws -> Data {
+    try TimberVoxJSONCoding.makeEncoder().encode(snapshot)
+  }
+
+  static func decode(_ data: Data) throws -> DictationContextSnapshot {
+    try TimberVoxJSONCoding.makeDecoder().decode(DictationContextSnapshot.self, from: data)
+  }
+}
+
 struct DictationContextCaptureLimits: Equatable, Sendable {
   var maxClipboardItems = 32
   var maxClipboardCharacters = 20_000

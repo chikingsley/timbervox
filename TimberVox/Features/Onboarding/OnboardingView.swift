@@ -1,4 +1,3 @@
-import Inject
 import SwiftUI
 
 struct OnboardingView: View {
@@ -7,7 +6,6 @@ struct OnboardingView: View {
   @State private var coordinator: OnboardingCoordinator
   @State private var firstDictationText = ""
   @FocusState private var firstDictationFieldIsFocused: Bool
-  @ObserveInjection var injection
 
   init(
     dictation: DictationController,
@@ -48,7 +46,6 @@ struct OnboardingView: View {
     .onAppear {
       coordinator.permissions.refresh()
     }
-    .enableInjection()
   }
 
   @ViewBuilder

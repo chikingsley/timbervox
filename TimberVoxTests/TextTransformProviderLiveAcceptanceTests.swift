@@ -20,12 +20,12 @@ final class TextTransformProviderLiveAcceptanceTests: XCTestCase {
       let request = try XCTUnwrap(
         mode.textTransformRequest(rawTranscript: transcript, context: Self.context)
       )
-      let outcome = try await CloudTextTransformClient.production.transform(request: request)
+      let outcome = try await TextTransformAPIClient.production.transform(request: request)
       let text = outcome.text.trimmingCharacters(in: .whitespacesAndNewlines)
 
       XCTAssertFalse(text.isEmpty, "\(preset.label) returned empty structured text")
       XCTAssertFalse(text.contains("<super>"), "Legacy response tags returned for \(preset.label)")
-      try CloudCoders.encode(request).write(
+      try APIConnectorCoders.encode(request).write(
         to: artifacts.appendingPathComponent("\(preset.rawValue)-request.json")
       )
       try text.write(

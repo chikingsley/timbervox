@@ -43,7 +43,8 @@ struct KeyboardRootView: View {
   private var bottomRow: some View {
     HStack(spacing: 6) {
       if model.needsGlobe {
-        keyButton(systemName: "globe", width: 42, action: model.advanceKeyboard)
+        KeyboardModeSwitchButton(controller: model.controller)
+          .frame(width: 42, height: 44)
       }
       keyButton(systemName: model.shifted ? "shift.fill" : "shift", width: 42, action: model.toggleShift)
       keyButton(systemName: "delete.left", width: 46, action: model.deleteBackward)
@@ -80,6 +81,32 @@ struct KeyboardRootView: View {
     }
     .buttonStyle(KeyboardKeyStyle())
   }
+}
+
+private struct KeyboardModeSwitchButton: UIViewRepresentable {
+  let controller: UIInputViewController?
+
+  func makeUIView(context: Context) -> UIButton {
+    let button = UIButton(type: .system)
+    button.setImage(UIImage(systemName: "globe"), for: .normal)
+    button.tintColor = .label
+    button.backgroundColor = .systemBackground
+    button.layer.cornerRadius = 7
+    button.layer.shadowColor = UIColor.black.cgColor
+    button.layer.shadowOpacity = 0.18
+    button.layer.shadowRadius = 0.5
+    button.layer.shadowOffset = CGSize(width: 0, height: 1)
+    if let controller {
+      button.addTarget(
+        controller,
+        action: #selector(UIInputViewController.handleInputModeList(from:with:)),
+        for: .allTouchEvents
+      )
+    }
+    return button
+  }
+
+  func updateUIView(_ button: UIButton, context: Context) {}
 }
 
 private struct KeyboardKeyStyle: ButtonStyle {

@@ -72,17 +72,17 @@ final class SongbirdLiveAcceptanceTests: XCTestCase {
       "Touch /tmp/timbervox-live-songbird to run real Songbird language acceptance."
     )
     let artifacts = try LiveAudioTest.makeArtifactsDirectory(named: "songbird-languages")
-    let batch = LocalBatchTranscriptionClient.shared
-    let realtime = LocalRealtimeTranscriptionSession.shared
-    let backend = FluidAudioLocalModelAssetBackend()
+    let batch = FluidAudioBatchTranscriber.shared
+    let realtime = FluidAudioRealtimeTranscriptionSession.shared
+    let backend = FluidAudioModelAssetBackend()
     try await backend.prepare(.batch(.parakeetTdtV3)) { _ in }
     ModelHub.offlineMode = true
     defer { ModelHub.offlineMode = false }
 
     for fixture in sharedFixtures {
       let audio = try makeSpeechFixture(fixture, artifacts: artifacts)
-      let batchText = try await batch.transcribe(wavAt: audio, route: .parakeetTdtV3)
-      try assertTranscript(batchText, fixture: fixture, transport: "batch")
+      let batchArtifact = try await batch.transcribe(wavAt: audio, route: .parakeetTdtV3)
+      try assertTranscript(batchArtifact.displayText, fixture: fixture, transport: "batch")
     }
 
     for fixture in sharedFixtures + realtimeOnlyFixtures {
@@ -93,8 +93,8 @@ final class SongbirdLiveAcceptanceTests: XCTestCase {
         language: fixture.language
       ) { _ in }
       try await realtime.sendPCM(samples)
-      let realtimeText = try await realtime.finish()
-      try assertTranscript(realtimeText, fixture: fixture, transport: "realtime")
+      let realtimeArtifact = try await realtime.finish()
+      try assertTranscript(realtimeArtifact.displayText, fixture: fixture, transport: "realtime")
     }
 
     let metrics = try storageMetrics()

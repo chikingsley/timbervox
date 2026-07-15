@@ -1,4 +1,4 @@
-import type { RealtimeAsrProviderId } from "../models/types";
+import type { TranscriptionArtifact } from "../transcription/artifact";
 import type {
   TranscriptSegment,
   TranscriptSpeakerTurn,
@@ -30,34 +30,19 @@ export interface RealtimeTranscriptProtocolEvent extends RealtimeEventBase {
 }
 
 export interface RealtimeSessionCompletedEvent extends RealtimeEventBase {
-  audio_bytes: number;
-  audio_seconds: number | null;
-  ended_at: string;
-  language: string | null;
-  message_count: number;
-  model: string;
-  provider: RealtimeAsrProviderId;
-  started_at: string;
+  result: TranscriptionArtifact;
   status: "succeeded";
-  transcript: string;
   type: "session.completed";
 }
 
 export interface RealtimeSessionFailedEvent extends RealtimeEventBase {
-  audio_bytes: number;
-  ended_at: string;
   error: {
     code: "provider_error" | "session_error";
     message: string;
     retryable: boolean;
   };
-  language: string | null;
-  message_count: number;
-  model: string;
-  provider: RealtimeAsrProviderId;
-  started_at: string;
+  result: TranscriptionArtifact;
   status: "failed";
-  transcript: string;
   type: "session.failed";
 }
 
@@ -66,31 +51,12 @@ export type RealtimeSessionTerminalEvent =
   | RealtimeSessionFailedEvent;
 
 export interface RealtimeProtocolSession {
-  audioBytes: number;
-  audioSeconds?: number | null;
-  endedAt: string;
   error?: string | null;
   errorCode?: "provider_error" | "session_error";
-  language: string | null;
-  messageCount: number;
-  model: string;
-  provider: RealtimeAsrProviderId;
-  sampleRate: number | null;
+  result: TranscriptionArtifact;
   sessionId: string;
-  startedAt: string;
   status: "failed" | "succeeded";
-  transcript: string;
 }
-
-const audioSeconds = (
-  audioBytes: number,
-  sampleRate: number | null
-): number | null => {
-  if (audioBytes <= 0 || !sampleRate) {
-    return null;
-  }
-  return audioBytes / 2 / sampleRate;
-};
 
 export const sessionStartedEvent = (input: {
   language: string | null;
@@ -140,17 +106,10 @@ export const terminalSessionEvent = (
   sequence: number
 ): RealtimeSessionTerminalEvent => {
   const base = {
-    audio_bytes: session.audioBytes,
-    ended_at: session.endedAt,
-    language: session.language,
-    message_count: session.messageCount,
-    model: session.model,
     protocol_version: REALTIME_PROTOCOL_VERSION,
-    provider: session.provider,
+    result: session.result,
     sequence,
     session_id: session.sessionId,
-    started_at: session.startedAt,
-    transcript: session.transcript,
   } as const;
   if (session.status === "failed") {
     return {
@@ -166,9 +125,6 @@ export const terminalSessionEvent = (
   }
   return {
     ...base,
-    audio_seconds:
-      session.audioSeconds ??
-      audioSeconds(session.audioBytes, session.sampleRate),
     status: "succeeded",
     type: "session.completed",
   };

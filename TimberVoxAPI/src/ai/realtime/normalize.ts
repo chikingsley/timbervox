@@ -178,7 +178,7 @@ const normalizeWords = (value: unknown): TranscriptWord[] => {
       text,
     };
     if (typeof raw.confidence === "number") {
-      word.confidence = raw.confidence;
+      word.scores = { confidence: raw.confidence };
     }
     const speaker = normalizeSpeaker(raw.speaker ?? raw.speaker_id);
     if (speaker !== undefined) {

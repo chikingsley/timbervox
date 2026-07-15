@@ -11,6 +11,7 @@ import {
   terminalSessionEvent,
   transcriptProtocolEvent,
 } from "../../src/ai/realtime/protocol";
+import { realtimeTranscriptionArtifact } from "../../src/ai/transcription/artifact";
 
 const requiredTranscriptKeys = [
   "protocol_version",
@@ -132,24 +133,49 @@ describe("provider-neutral realtime protocol", () => {
   });
 
   it("uses one terminal result contract for either provider", () => {
-    const base = {
-      audioBytes: 32_000,
-      endedAt: "2026-07-11T12:00:01.000Z",
-      language: "en",
-      messageCount: 10,
-      model: "test-model",
-      sampleRate: 16_000,
+    const artifact = (provider: "deepgram" | "mistral") =>
+      realtimeTranscriptionArtifact({
+        audioBytes: 32_000,
+        completedAt: "2026-07-11T12:00:01.000Z",
+        events: [
+          {
+            delivery: "committed",
+            isFinal: true,
+            providerEvent: null,
+            segments: [],
+            speakerTurns: [],
+            text: "Safety meeting complete.",
+            type: "transcript",
+            words: [],
+          },
+        ],
+        messageCount: 10,
+        model: "test-model",
+        provider,
+        providerEvents: [],
+        providerMetadata: {},
+        requestedLanguage: "en",
+        responses: [],
+        resultSegments: [],
+        runId: "rt_contract",
+        sampleRate: 16_000,
+        startedAt: "2026-07-11T12:00:00.000Z",
+        upstreamModel: "test-upstream-model",
+        warnings: [],
+      });
+    const base = (provider: "deepgram" | "mistral") => ({
+      result: artifact(provider),
       sessionId: "rt_contract",
-      startedAt: "2026-07-11T12:00:00.000Z",
       status: "succeeded" as const,
-      transcript: "Safety meeting complete.",
-    };
-    const deepgram = terminalSessionEvent({ ...base, provider: "deepgram" }, 4);
-    const mistral = terminalSessionEvent({ ...base, provider: "mistral" }, 4);
+    });
+    const deepgram = terminalSessionEvent(base("deepgram"), 4);
+    const mistral = terminalSessionEvent(base("mistral"), 4);
 
     expect(deepgram.type).toBe("session.completed");
     expect(mistral.type).toBe("session.completed");
     expect(Object.keys(deepgram).sort()).toEqual(Object.keys(mistral).sort());
+    expect(deepgram.result.provenance.provider).toBe("deepgram");
+    expect(deepgram).not.toHaveProperty("transcript");
   });
 
   it("maps the AI SDK transcription stream into the TimberVox protocol", () => {
@@ -167,8 +193,8 @@ describe("provider-neutral realtime protocol", () => {
           speakerTurns: [],
           words: [
             {
-              confidence: 0.99,
               endSeconds: 1.2,
+              scores: { confidence: 0.99 },
               speaker: 0,
               startSeconds: 0.8,
               text: "Safety",
@@ -189,8 +215,8 @@ describe("provider-neutral realtime protocol", () => {
     expect(required(protocolEvent).type).toBe("transcript.committed");
     expect(required(protocolEvent).words).toEqual([
       {
-        confidence: 0.99,
         endSeconds: 1.2,
+        scores: { confidence: 0.99 },
         speaker: 0,
         startSeconds: 0.8,
         text: "Safety",

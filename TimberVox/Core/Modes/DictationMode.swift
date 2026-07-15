@@ -15,6 +15,7 @@ struct DictationMode: Codable, Equatable, Identifiable, Sendable {
   var name: String
   var nameIsCustomized: Bool
   var iconSystemName: String?
+  var activationBundleIdentifiers: [String]
   var audioModelID: String
   var languageCode: String?
   var realtimeEnabled: Bool
@@ -49,6 +50,7 @@ struct DictationMode: Codable, Equatable, Identifiable, Sendable {
     name: String,
     nameIsCustomized: Bool = false,
     iconSystemName: String? = nil,
+    activationBundleIdentifiers: [String] = [],
     audioModelID: String,
     languageCode: String?,
     realtimeEnabled: Bool,
@@ -64,6 +66,7 @@ struct DictationMode: Codable, Equatable, Identifiable, Sendable {
     self.name = name
     self.nameIsCustomized = nameIsCustomized
     self.iconSystemName = iconSystemName
+    self.activationBundleIdentifiers = activationBundleIdentifiers
     self.audioModelID = audioModelID
     self.languageCode = languageCode
     self.realtimeEnabled = realtimeEnabled
@@ -110,7 +113,7 @@ struct DictationMode: Codable, Equatable, Identifiable, Sendable {
   func textTransformRequest(
     rawTranscript: String,
     context: DictationContext? = nil
-  ) -> CloudTextTransformRequest? {
+  ) -> TextTransformRequest? {
     guard usesTextTransform else { return nil }
     guard let preset = textTransformPreset.preset(customInstructions: customTextTransformInstructions) else {
       return nil
@@ -128,8 +131,8 @@ struct DictationMode: Codable, Equatable, Identifiable, Sendable {
         context: resolvedContext,
         contextOptions: effectiveTextTransformContextOptions
       )
-      .map(CloudTextMessage.init)
-    return CloudTextTransformRequest(
+      .map(TextTransformMessage.init)
+    return TextTransformRequest(
       messages: messages,
       model: textTransformModelID
     )
@@ -139,6 +142,7 @@ struct DictationMode: Codable, Equatable, Identifiable, Sendable {
 extension DictationMode {
   private enum CodingKeys: String, CodingKey {
     case audioModelID
+    case activationBundleIdentifiers
     case customTextTransformInstructions
     case diarizationEnabled
     case iconSystemName
@@ -160,6 +164,8 @@ extension DictationMode {
     name = try container.decode(String.self, forKey: .name)
     nameIsCustomized = try container.decodeIfPresent(Bool.self, forKey: .nameIsCustomized) ?? false
     iconSystemName = try container.decodeIfPresent(String.self, forKey: .iconSystemName)
+    activationBundleIdentifiers =
+      try container.decodeIfPresent([String].self, forKey: .activationBundleIdentifiers) ?? []
     audioModelID = try container.decode(String.self, forKey: .audioModelID)
     languageCode = try container.decodeIfPresent(String.self, forKey: .languageCode)
     realtimeEnabled = try container.decode(Bool.self, forKey: .realtimeEnabled)
@@ -183,6 +189,7 @@ extension DictationMode {
     try container.encode(name, forKey: .name)
     try container.encode(nameIsCustomized, forKey: .nameIsCustomized)
     try container.encodeIfPresent(iconSystemName, forKey: .iconSystemName)
+    try container.encode(activationBundleIdentifiers, forKey: .activationBundleIdentifiers)
     try container.encode(audioModelID, forKey: .audioModelID)
     try container.encodeIfPresent(languageCode, forKey: .languageCode)
     try container.encode(realtimeEnabled, forKey: .realtimeEnabled)

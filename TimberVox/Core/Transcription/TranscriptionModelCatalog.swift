@@ -18,6 +18,16 @@ enum LocalTranscriptionRouteID: String, Equatable, Sendable {
   case nemotronMultilingual1120 = "nemotron-multilingual-1120ms"
   case parakeetTdtCtc110M = "parakeet-tdt-ctc-110m-coreml"
   case parakeetTdtV3 = "parakeet-tdt-0.6b-v3-coreml"
+
+  var displayName: String {
+    switch self {
+    case .nemotronEnglish1120: "Nemotron 1120"
+    case .nemotronEnglish560: "Nemotron 560"
+    case .nemotronMultilingual1120: "Nemotron Multilingual 1120"
+    case .parakeetTdtCtc110M: "Parakeet 110M"
+    case .parakeetTdtV3: "Parakeet v3"
+    }
+  }
 }
 
 enum TranscriptionRouteExecutor: Equatable, Sendable {
@@ -60,10 +70,17 @@ struct ModelRating: Equatable, Sendable {
 }
 
 struct TranscriptionModelPresentation: Equatable, Sendable {
+  var accuracy: CatalogModelAccuracy?
   var summary: String
   var quality: ModelRating?
   var response: ModelRating?
+  var speed: CatalogModelSpeed?
   var approximateDownloadBytes: Int64?
+
+  var metricLabel: String? {
+    let labels = [speed?.label, accuracy?.label].compactMap { $0 }
+    return labels.isEmpty ? nil : labels.joined(separator: " · ")
+  }
 }
 
 struct TranscriptionModelSpec: Equatable, Identifiable, Sendable {
@@ -99,7 +116,7 @@ enum LocalTranscriptionModelCatalog {
     id: "local-hummingbird",
     displayName: "Hummingbird",
     technicalName: "Parakeet 110M + Nemotron 560",
-    provider: "FluidAudio",
+    provider: "NVIDIA",
     runtime: .local,
     routes: TranscriptionModelRoutes(
       batch: route(
@@ -114,6 +131,12 @@ enum LocalTranscriptionModelCatalog {
       )
     ),
     presentation: TranscriptionModelPresentation(
+      accuracy: CatalogModelAccuracy(
+        benchmark: "FluidAudio LibriSpeech test-clean",
+        metric: "wer",
+        source: "fluid-audio",
+        value: 3.01
+      ),
       summary: "Fast, lightweight English dictation.",
       quality: ModelRating(
         score: 4,
@@ -125,6 +148,14 @@ enum LocalTranscriptionModelCatalog {
         basis: .publishedEvidence,
         explanation: "Uses the lowest-latency 560 ms English streaming route."
       ),
+      speed: CatalogModelSpeed(
+        approximate: false,
+        kind: .realtime,
+        measuredAt: nil,
+        profile: nil,
+        source: "route-capability",
+        value: nil
+      ),
       approximateDownloadBytes: 1_750_000_000
     )
   )
@@ -133,7 +164,7 @@ enum LocalTranscriptionModelCatalog {
     id: "local-nightingale",
     displayName: "Nightingale",
     technicalName: "Parakeet v3 + Nemotron 1120",
-    provider: "FluidAudio",
+    provider: "NVIDIA",
     runtime: .local,
     routes: TranscriptionModelRoutes(
       batch: route(
@@ -148,6 +179,12 @@ enum LocalTranscriptionModelCatalog {
       )
     ),
     presentation: TranscriptionModelPresentation(
+      accuracy: CatalogModelAccuracy(
+        benchmark: "FluidAudio LibriSpeech test-clean",
+        metric: "wer",
+        source: "fluid-audio",
+        value: 2.6
+      ),
       summary: "Highest-quality local English dictation.",
       quality: ModelRating(
         score: 5,
@@ -159,6 +196,14 @@ enum LocalTranscriptionModelCatalog {
         basis: .publishedEvidence,
         explanation: "The 1120 ms route favors quality while remaining responsive."
       ),
+      speed: CatalogModelSpeed(
+        approximate: false,
+        kind: .realtime,
+        measuredAt: nil,
+        profile: nil,
+        source: "route-capability",
+        value: nil
+      ),
       approximateDownloadBytes: 2_050_000_000
     )
   )
@@ -167,7 +212,7 @@ enum LocalTranscriptionModelCatalog {
     id: "local-songbird",
     displayName: "Songbird",
     technicalName: "Parakeet v3 + Nemotron Multilingual 1120",
-    provider: "FluidAudio",
+    provider: "NVIDIA",
     runtime: .local,
     routes: TranscriptionModelRoutes(
       batch: route(
@@ -182,6 +227,12 @@ enum LocalTranscriptionModelCatalog {
       )
     ),
     presentation: TranscriptionModelPresentation(
+      accuracy: CatalogModelAccuracy(
+        benchmark: "FluidAudio LibriSpeech test-clean",
+        metric: "wer",
+        source: "fluid-audio",
+        value: 2.6
+      ),
       summary: "Private multilingual dictation in eight realtime languages.",
       quality: ModelRating(
         score: 4,
@@ -192,6 +243,14 @@ enum LocalTranscriptionModelCatalog {
         score: 3,
         basis: .publishedEvidence,
         explanation: "The larger multilingual vocabulary trades some response speed for coverage."
+      ),
+      speed: CatalogModelSpeed(
+        approximate: false,
+        kind: .realtime,
+        measuredAt: nil,
+        profile: nil,
+        source: "route-capability",
+        value: nil
       ),
       approximateDownloadBytes: 2_050_000_000
     )
@@ -204,7 +263,7 @@ enum LocalTranscriptionModelCatalog {
   ) -> TranscriptionRouteSpec {
     TranscriptionRouteSpec(
       model: id.rawValue,
-      provider: "FluidAudio",
+      provider: "nvidia",
       supportedLanguages: languages,
       supportsAutomaticLanguage: supportsAutomaticLanguage,
       supportsDiarization: false,
@@ -214,7 +273,11 @@ enum LocalTranscriptionModelCatalog {
   }
 }
 
-extension CloudModelSpec {
+extension CatalogModel {
+  var menuLabel: String {
+    "\(displayName) (\(provider.capitalized))"
+  }
+
   var transcriptionModelSpec: TranscriptionModelSpec? {
     guard kind == .transcription else { return nil }
     return TranscriptionModelSpec(
@@ -228,9 +291,11 @@ extension CloudModelSpec {
         realtime: realtimeRoute.map(TranscriptionRouteSpec.init)
       ),
       presentation: TranscriptionModelPresentation(
+        accuracy: accuracy,
         summary: "Cloud transcription from \(provider.capitalized).",
         quality: nil,
         response: nil,
+        speed: speed,
         approximateDownloadBytes: nil
       )
     )
@@ -238,7 +303,7 @@ extension CloudModelSpec {
 }
 
 private extension TranscriptionRouteSpec {
-  init(_ cloudRoute: CloudModelRouteSpec) {
+  init(_ cloudRoute: CatalogTranscriptionRoute) {
     self.init(
       model: cloudRoute.model,
       provider: cloudRoute.provider,

@@ -2,6 +2,32 @@ import { z } from "zod";
 
 const TranscriptSpeakerSchema = z.union([z.string(), z.number()]);
 
+export const TranscriptCollectionAvailabilitySchema = z.enum([
+  "available",
+  "not_requested",
+  "provider_omitted",
+  "unsupported",
+]);
+
+export const TranscriptCollectionSourceSchema = z.enum(["derived", "provider"]);
+
+const TranscriptCollectionInfoSchema = z
+  .object({
+    availability: TranscriptCollectionAvailabilitySchema,
+    source: TranscriptCollectionSourceSchema.optional(),
+  })
+  .strict();
+
+const TranscriptScoresSchema = z
+  .object({
+    confidence: z.number().min(0).max(1).optional(),
+    logProbability: z.number().optional(),
+    probability: z.number().min(0).max(1).optional(),
+    score: z.number().optional(),
+    speakerConfidence: z.number().min(0).max(1).optional(),
+  })
+  .strict();
+
 const TimedTextSchema = z
   .object({
     endSeconds: z.number().nonnegative(),
@@ -12,40 +38,83 @@ const TimedTextSchema = z
   .strict();
 
 const TranscriptWordSchema = TimedTextSchema.extend({
-  confidence: z.number().min(0).max(1).optional(),
+  scores: TranscriptScoresSchema.optional(),
 }).strict();
 
 const TranscriptSegmentSchema = TimedTextSchema.extend({
-  confidence: z.number().min(0).max(1).optional(),
+  scores: TranscriptScoresSchema.optional(),
 }).strict();
 
 const TranscriptSpeakerTurnSchema = TimedTextSchema.strict();
 
-export const BatchTranscriptionResultSchema = z
+const TranscriptTokenSchema = z
   .object({
-    durationSeconds: z.number().nonnegative().optional(),
-    language: z.string().optional(),
-    providerMetadata: z.record(z.string(), z.unknown()).optional(),
-    segments: z.array(TranscriptSegmentSchema).default([]),
-    speakerTurns: z.array(TranscriptSpeakerTurnSchema).default([]),
+    endSeconds: z.number().nonnegative().optional(),
+    kind: z.string().optional(),
+    scores: TranscriptScoresSchema.optional(),
+    speaker: TranscriptSpeakerSchema.optional(),
+    startSeconds: z.number().nonnegative().optional(),
     text: z.string(),
-    warnings: z
-      .array(
-        z
-          .object({
-            code: z.string(),
-            message: z.string(),
-          })
-          .strict()
-      )
-      .default([]),
-    words: z.array(TranscriptWordSchema).default([]),
+    tokenId: z.number().int().optional(),
   })
   .strict();
 
-type BatchTranscriptionResult = z.infer<typeof BatchTranscriptionResultSchema>;
+const TranscriptAudioEventSchema = z
+  .object({
+    endSeconds: z.number().nonnegative().optional(),
+    startSeconds: z.number().nonnegative().optional(),
+    text: z.string(),
+  })
+  .strict();
+
+const TranscriptionUsageSchema = z
+  .object({
+    inputTokens: z.number().int().nonnegative().optional(),
+    outputTokens: z.number().int().nonnegative().optional(),
+    totalTokens: z.number().int().nonnegative().optional(),
+  })
+  .strict();
+
+export const BatchTranscriptionResultSchema = z
+  .object({
+    audioEvents: z.array(TranscriptAudioEventSchema),
+    collections: z
+      .object({
+        audioEvents: TranscriptCollectionInfoSchema,
+        segments: TranscriptCollectionInfoSchema,
+        speakerTurns: TranscriptCollectionInfoSchema,
+        tokens: TranscriptCollectionInfoSchema,
+        words: TranscriptCollectionInfoSchema,
+      })
+      .strict(),
+    durationSeconds: z.number().nonnegative().optional(),
+    language: z.string().optional(),
+    languageConfidence: z.number().min(0).max(1).optional(),
+    providerMetadata: z.record(z.string(), z.unknown()).optional(),
+    providerResponse: z.record(z.string(), z.unknown()),
+    segments: z.array(TranscriptSegmentSchema),
+    speakerTurns: z.array(TranscriptSpeakerTurnSchema),
+    text: z.string(),
+    tokens: z.array(TranscriptTokenSchema),
+    usage: TranscriptionUsageSchema,
+    warnings: z.array(
+      z
+        .object({
+          code: z.string(),
+          message: z.string(),
+        })
+        .strict()
+    ),
+    words: z.array(TranscriptWordSchema),
+  })
+  .strict();
+
+export type BatchTranscriptionResult = z.infer<
+  typeof BatchTranscriptionResultSchema
+>;
 export type TranscriptSpeakerTurn = z.infer<typeof TranscriptSpeakerTurnSchema>;
 export type TranscriptSegment = z.infer<typeof TranscriptSegmentSchema>;
+export type TranscriptToken = z.infer<typeof TranscriptTokenSchema>;
 export type TranscriptWord = z.infer<typeof TranscriptWordSchema>;
 
 export interface RemoteMediaSource {

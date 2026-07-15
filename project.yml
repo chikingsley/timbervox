@@ -43,14 +43,9 @@ packages:
   RevenueCat:
     url: https://github.com/RevenueCat/purchases-ios.git
     from: "5.43.0"
-  Inject:
-    url: https://github.com/krzysztofzablocki/Inject.git
-    from: "1.6.0"
   FluidAudio:
     url: https://github.com/FluidInference/FluidAudio
     exactVersion: "0.15.5"
-  Swiftcn:
-    path: ../swiftcn-ui
 
 targets:
   TimberVox:
@@ -67,9 +62,7 @@ targets:
       - package: GRDB
       - package: KeyboardShortcuts
       - package: RevenueCat
-      - package: Inject
       - package: FluidAudio
-      - package: Swiftcn
     info:
       path: TimberVox/Info.plist
       properties:
@@ -87,9 +80,10 @@ targets:
         MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: 79
         CODE_SIGN_ENTITLEMENTS: TimberVox/TimberVox.entitlements
-        ENABLE_PREVIEWS: YES
+        ENABLE_PREVIEWS: NO
         ENABLE_HARDENED_RUNTIME: YES
         RUNTIME_EXCEPTION_DISABLE_LIBRARY_VALIDATION: YES
+        SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
       configs:
         Debug:
           ENABLE_HARDENED_RUNTIME: NO
@@ -109,6 +103,19 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.chiejimofor.timbervox.tests
         GENERATE_INFOPLIST_FILE: YES
 
+  TimberVoxUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: TimberVoxUITests
+    dependencies:
+      - target: TimberVox
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.chiejimofor.timbervox.ui-tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: TimberVox
+
 schemes:
   TimberVox:
     build:
@@ -118,9 +125,21 @@ schemes:
     test:
       targets:
         - TimberVoxTests
+      commandLineArguments:
+        "--skip-onboarding": true
+      environmentVariables:
+        TIMBERVOX_TEST_HOST: "1"
     run:
       config: Debug
       commandLineArguments:
         "--skip-onboarding": true
-      environmentVariables:
-        INJECTION_STANDALONE: "1"
+  TimberVoxNavigationPerformance:
+    build:
+      targets:
+        TimberVox: all
+        TimberVoxUITests: [test]
+    test:
+      targets:
+        - TimberVoxUITests
+      commandLineArguments:
+        "--skip-onboarding": true

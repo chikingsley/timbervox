@@ -1,15 +1,54 @@
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
-import { useColorScheme } from 'react-native';
+import "@/global.css";
 
-import { DictationSessionProvider } from '@/features/dictation/dictation-session';
+import { PortalHost } from "@rn-primitives/portal";
+import { Stack, ThemeProvider } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useColorScheme } from "nativewind";
+
+import { DictationSessionProvider } from "@/features/dictation/dictation-session";
+import { HistoryProvider } from "@/features/history/history-store";
+import { ModeProvider } from "@/features/modes/mode-provider";
+import { AppDatabaseProvider } from "@/lib/db/database";
+import { NAV_THEME } from "@/lib/theme";
+
+export { ErrorBoundary } from "expo-router";
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  const { colorScheme } = useColorScheme();
   return (
-    <DictationSessionProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack screenOptions={{ headerShown: false }} />
-      </ThemeProvider>
-    </DictationSessionProvider>
+    <AppDatabaseProvider>
+      <ModeProvider>
+        <HistoryProvider>
+          <DictationSessionProvider>
+            <ThemeProvider value={NAV_THEME[colorScheme ?? "light"]}>
+              <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
+              <Stack
+                screenOptions={{
+                  headerBackButtonDisplayMode: "minimal",
+                  headerTitleStyle: { fontWeight: "700" },
+                }}
+              >
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+                <Stack.Screen
+                  name="(onboarding)"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen
+                  name="mode-picker"
+                  options={{
+                    presentation: "formSheet",
+                    sheetAllowedDetents: [0.5, 0.85],
+                    sheetGrabberVisible: true,
+                    title: "Choose Mode",
+                  }}
+                />
+              </Stack>
+              <PortalHost />
+            </ThemeProvider>
+          </DictationSessionProvider>
+        </HistoryProvider>
+      </ModeProvider>
+    </AppDatabaseProvider>
   );
 }

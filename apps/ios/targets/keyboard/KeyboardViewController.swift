@@ -21,6 +21,8 @@ final class KeyboardViewController: UIInputViewController {
     model.proxy = textDocumentProxy
     model.hasFullAccess = hasFullAccess
     model.needsGlobe = needsInputModeSwitchKey
+    KeyboardBridge.set(true, for: .keyboardSeen)
+    KeyboardBridge.set(hasFullAccess, for: .keyboardHasFullAccess)
     model.refreshBridgeState()
     startPolling()
   }
@@ -197,6 +199,8 @@ final class KeyboardModel: ObservableObject {
 }
 
 private enum BridgeKey: String {
+  case keyboardSeen
+  case keyboardHasFullAccess
   case sessionActive
   case recordingRequested
   case requestRevision

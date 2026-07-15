@@ -23,13 +23,25 @@ export const readProviderResponse = async <Result>(
   provider: string,
   response: Response,
   schema: ZodType<Result>
-): Promise<Result> => {
+): Promise<{
+  parsed: Result;
+  raw: Record<string, unknown>;
+}> => {
   const body = await readJson(response);
   if (!response.ok) {
     throw new TranscriptionProviderError(provider, response.status, body);
   }
-  return schema.parse(body);
+  if (!isJsonObject(body)) {
+    throw new Error(`${provider} transcription response was not a JSON object`);
+  }
+  return {
+    parsed: schema.parse(body),
+    raw: body,
+  };
 };
+
+const isJsonObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const readJson = async (response: Response): Promise<unknown> => {
   const text = await response.text();

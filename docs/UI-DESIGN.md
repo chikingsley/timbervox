@@ -20,7 +20,7 @@ This document is the design track for answering:
 - Which collections justify list-detail navigation?
 - Where do permissions, shortcuts, modes, imported transcripts, and meetings belong?
 - Which stock SwiftUI or AppKit controls should be tried before custom composition?
-- Which layouts should be prototyped before the production UI is changed?
+- Which interactions should be verified in the production app before the next surface is changed?
 
 ## Apple design baseline
 
@@ -171,6 +171,13 @@ Proposed priority order:
 4. A configurable quick-start area for real workflows after each runtime exists.
 5. Trustworthy usage statistics after enough history exists.
 
+The Home toolbar owns an **Add Link** action for public audio/video URLs. It opens a small
+sheet with one URL field, paste support, validation, and a clear Add/Cancel outcome. The
+action creates the same durable audio item and transcription run as file import; it does
+not become a parallel downloads library or expose `yt-dlp` as product terminology. URL
+resolution and download progress live outside `HomePane`, and the toolbar action remains
+absent until the full URL -> local media -> transcription -> History path works.
+
 Dictation remains primarily a global shortcut interaction rather than a large Home
 Start/Stop control. A small dictation action may exist for discovery or testing, but it
 must not visually redefine dictation as an in-window recorder.
@@ -207,38 +214,55 @@ editing" and "active for dictation" are distinct states.
 
 ### Accepted layout direction
 
-Modes uses a visible master list and detail editor. The expected collection is roughly
-two to six modes, and people need to compare and move among those workflows without
-opening a picker.
+Modes follows the accepted reference's collection-to-detail transition. The collection
+uses the full content area; selecting a mode replaces it with the full-page editor rather
+than retaining a narrow master column. The expected collection is roughly two to six
+modes, and the back action returns to that collection.
 
-- While Modes is selected, the window's content column contains a stock List showing
-  every mode. The list is a collection column, not another independent app sidebar.
-- Selecting a row changes the detail editor only.
-- The active fallback mode is explicitly marked in the list and detail.
-- Future automatic app activation is a separate fact. A row can summarize rules such as
+- The active fallback mode is explicitly marked in the collection.
+- Future automatic app activation is a separate fact. A card can summarize rules such as
   Mail or Zoom without pretending that several modes are simultaneously active.
+- Selecting a card opens the editor; it does not also activate that mode.
+- The detail header owns Back, editable icon/name, Share, and confirmed Delete. Share is
+  not portable until the versioned import/export contract in `TODO.md` is complete.
+- The detail shows preset, transcription, activation, and audio settings without an
+  Advanced disclosure. Unsupported catalog capabilities remain absent.
 - `Use Mode` makes the selected mode the active fallback when it is not already active.
-- `+` creates a mode using an explicit default or duplicate action.
-- A context or More menu contains Duplicate and Delete; the Name field handles renaming.
-- The detail preserves the stock grouped Form with Mode, Transcription, Text Transform,
-  Context, and future App Activation sections.
-- The mode name is not repeated as list title, navigation title, and form field.
+- Create and preset cards use the real `ModeStore`; fixture-backed mode routes stay out of
+  production.
 
-The list can scroll if it grows. Search is unnecessary for the expected collection size.
-If observed collections become substantially larger, add native search before inventing
-a custom mode browser.
+### Modes component contract
 
-### Prototype comparisons
+- Every settings surface composes reviewed SwiftCN sources installed into
+  `Features/Components/UI` through the SwiftCN CLI. App-specific composites remain under
+  `Features/Modes`; they do not fork the primitive implementation.
+- Dropdown triggers are 200 points wide and 32 points high. Their surface is lighter than
+  the card, with a light edge and restrained top highlight. The model results panel is
+  336 points wide, matching the accepted web reference's `w-84` composition.
+- Searchable model fields use `SCCombobox`: an embedded magnifier/search field without a
+  second input border, opaque popover tokens, hidden scroll indicators, keyboard
+  selection, and click-away/Escape dismissal.
+- On macOS, Combobox and Hover Card content uses the arrowless `SCOverlayPortal` panel.
+  This is the Swift counterpart to the web Portal/Positioner and must remain outside card,
+  ScrollView, and split-view clipping.
+- Preset rows retain their icons and optional Hover Card explanation. Model rows do not
+  show the rejected model-information Hover Card. Their favorite and local-package
+  actions are real controls backed by persisted preferences and
+  `FluidAudioModelPackageStore`.
+- The Super preset's Recommended badge stays trailing. Voice to Text remains the second
+  preset in reference order.
 
-Build fixture-backed, Debug-only previews for:
+The collection can scroll if it grows. Search is unnecessary for the expected collection
+size. If observed collections become substantially larger, add native search before
+inventing a custom mode browser.
 
-1. One proper window-level three-column sidebar/content/detail layout - accepted starting
-   point, with the visible mode list in the content column.
-2. A two-column content-list/detail presentation with the app sidebar collapsed.
-3. Row-density and activation-rule variants using the same collection and form.
+### Comparison workflow
 
-Use the same data and same form in all variants so the comparison tests navigation, not
-unrelated styling.
+Iterate on the production Modes surface in the built application. Compare the expanded and
+collapsed sidebar layouts, row density, popup placement, and activation states against the
+real mode store and Worker catalog. Verify selection, editing, popup dismissal, favorite
+regrouping, local-model progress, and active-mode changes in the launched app; do not add
+fixture-backed app routes or Xcode previews.
 
 ## History
 
@@ -337,21 +361,21 @@ keyboard shortcuts.
 
 ## Design work sequence
 
-This track is intentionally separate from contract and runtime implementation.
+This track is implemented against production surfaces and real runtime state.
 
 1. Review and revise this navigation tree and surface ownership.
-2. Prototype the three Modes layouts with shared fixtures.
-3. Prototype Home states: fresh setup, ready/empty, active dictation, and established
-   history with statistics.
+2. Verify the Modes layout and interactions against the real mode store and Worker catalog.
+3. Iterate Home through its real fresh setup, ready/empty, active dictation, and established
+   history states.
 4. Rework History using native search and a coherent list/detail/inspector structure.
-5. Prototype Settings in the main window, consolidate permission state ownership, and
+5. Iterate Settings in the main window, consolidate permission state ownership, and
    preserve a clean extraction path to a separate Settings window.
-6. Write state maps and low-fidelity previews for Transcriptions and Meetings before
-   creating shipping sidebar destinations.
-7. Define the Hot Mic/wake-word Commands runtime and then prototype its collection and
+6. Write state maps for Transcriptions and Meetings before creating shipping sidebar
+   destinations, then implement only against their real runtime paths.
+7. Define the Hot Mic/wake-word Commands runtime before implementing its collection and
    editor states.
-8. Promote one accepted prototype at a time and run the required Swift gates plus visual
-   verification at small, default, and wide window sizes in light and dark appearance.
+8. Change one production surface at a time and run the required Swift gates plus live
+   visual verification at small, default, and wide window sizes in light and dark appearance.
 
 ## Decision log
 
@@ -360,7 +384,7 @@ This track is intentionally separate from contract and runtime implementation.
 | Main navigation | One sidebar for broad product areas | Proposed |
 | Settings | Main-window destination initially; separate window remains an option | Agreed starting point |
 | Permissions | Onboarding plus one shared recovery state | Proposed |
-| Modes | Visible mode list plus detail editor | Direction agreed; prototype first |
+| Modes | Visible mode list plus detail editor | Direction agreed; live integration |
 | History | Persistent content list plus detail and optional inspector | Proposed |
 | Transcriptions | Separate durable document library and editor | Roadmap-aligned future |
 | Meetings | Separate session workflow reusing transcript editor | Roadmap-aligned future |

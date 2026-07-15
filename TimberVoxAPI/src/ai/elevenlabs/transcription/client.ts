@@ -43,7 +43,7 @@ export const createElevenLabsTranscriptionProvider = (config: {
         method: "POST",
       }
     );
-    const body = await readProviderResponse(
+    const { parsed: body, raw: providerResponse } = await readProviderResponse(
       "ElevenLabs",
       response,
       ElevenLabsTranscriptionResponseSchema
@@ -57,11 +57,14 @@ export const createElevenLabsTranscriptionProvider = (config: {
         word.end !== undefined
           ? [
               {
-                confidence:
-                  word.logprob === undefined
-                    ? undefined
-                    : Math.min(1, Math.exp(word.logprob)),
                 endSeconds: word.end,
+                scores: {
+                  confidence:
+                    word.logprob === undefined
+                      ? undefined
+                      : Math.min(1, Math.exp(word.logprob)),
+                  logProbability: word.logprob,
+                },
                 speaker: word.speaker_id ?? undefined,
                 startSeconds: word.start,
                 text: word.text,
@@ -69,17 +72,66 @@ export const createElevenLabsTranscriptionProvider = (config: {
             ]
           : []
       ) ?? [];
+    const tokens =
+      body.words?.map((item) => ({
+        endSeconds: item.end ?? undefined,
+        kind: item.type,
+        scores: { logProbability: item.logprob },
+        speaker: item.speaker_id ?? undefined,
+        startSeconds: item.start ?? undefined,
+        text: item.text,
+      })) ?? [];
+    const audioEvents =
+      body.words
+        ?.filter((item) => item.type === "audio_event")
+        .map((item) => ({
+          endSeconds: item.end ?? undefined,
+          startSeconds: item.start ?? undefined,
+          text: item.text,
+        })) ?? [];
     const speakerTurns = speakerTurnsFromWords(words);
 
     return {
+      audioEvents,
+      collections: {
+        audioEvents: {
+          availability:
+            body.words === undefined ? "provider_omitted" : "available",
+          source: "provider",
+        },
+        segments: {
+          availability:
+            body.words === undefined ? "provider_omitted" : "available",
+          source: "derived",
+        },
+        speakerTurns: {
+          availability:
+            body.words === undefined ? "provider_omitted" : "available",
+          source: "derived",
+        },
+        tokens: {
+          availability:
+            body.words === undefined ? "provider_omitted" : "available",
+          source: "provider",
+        },
+        words: {
+          availability:
+            body.words === undefined ? "provider_omitted" : "available",
+          source: "provider",
+        },
+      },
       durationSeconds: words.at(-1)?.endSeconds,
       language: body.language_code,
+      languageConfidence: body.language_probability,
       providerMetadata: {
         languageProbability: body.language_probability,
       },
+      providerResponse,
       segments: speakerTurns,
       speakerTurns,
       text: body.text,
+      tokens,
+      usage: {},
       warnings: [],
       words,
     };

@@ -24,8 +24,8 @@ final class DualSpeechLiveAcceptanceTests: XCTestCase {
     let speechURL = artifacts.appendingPathComponent("system-speech.aiff")
     let speechDuration = try LiveAudioTest.writeSpokenPhrase(Self.systemPhrase, to: speechURL)
 
-    let session = RealtimeTranscriptionSession {
-      CloudClients.production.makeRealtimeTranscriptionClient()
+    let session = CloudRealtimeTranscriptionSession {
+      CloudRealtimeTranscriptionClient(baseURL: APIConnector.productionBaseURL)
     }
     try await session.start(
       model: Self.model,
@@ -40,7 +40,7 @@ final class DualSpeechLiveAcceptanceTests: XCTestCase {
       into: artifacts,
       streamingTo: session
     )
-    let realtimeTranscript = try await session.finish()
+    let realtimeTranscript = try await session.finish().displayText
     try save(realtimeTranscript, as: "realtime-transcript.txt", in: artifacts)
 
     let microphoneText = try await batchTranscript(of: urls.microphone, as: "microphone-stem", in: artifacts)
@@ -67,7 +67,7 @@ final class DualSpeechLiveAcceptanceTests: XCTestCase {
     playing speechURL: URL,
     speechDuration: TimeInterval,
     into artifacts: URL,
-    streamingTo session: RealtimeTranscriptionSession
+    streamingTo session: CloudRealtimeTranscriptionSession
   ) async throws -> (mixed: URL, microphone: URL, system: URL) {
     let mixedURL = artifacts.appendingPathComponent("mixed.wav")
     let microphoneURL = artifacts.appendingPathComponent("microphone-stem.wav")
@@ -103,13 +103,13 @@ final class DualSpeechLiveAcceptanceTests: XCTestCase {
     as name: String,
     in artifacts: URL
   ) async throws -> String {
-    let outcome = try await CloudBatchTranscriptionClient.production.transcribe(
+    let outcome = try await CloudBatchTranscriber.production.transcribe(
       wavAt: url,
       model: Self.model,
       language: "en"
     )
-    try save(outcome.rawText, as: "\(name)-transcript.txt", in: artifacts)
-    return outcome.rawText
+    try save(outcome.displayText, as: "\(name)-transcript.txt", in: artifacts)
+    return outcome.displayText
   }
 
   private func assertOnlyHumanSpeech(in text: String, label: String) {

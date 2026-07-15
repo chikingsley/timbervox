@@ -18,7 +18,8 @@ Mistral is the first integration target because it covers all three starting pat
 
 TimberVox implementation:
 
-- `POST /v1/text` routes to a configured language model.
+- `POST /v1/text` routes to a configured language model and returns one JSON result.
+- `POST /v1/text/stream` routes through the same model registry and returns provider-neutral SSE text deltas plus terminal usage and timing data.
 - `POST /v1/transcriptions` can route batch jobs to Mistral ASR.
 - `GET /v1/realtime` upgrades to a TimberVox WebSocket, then the Durable Object opens the Mistral realtime session.
 

@@ -1,5 +1,7 @@
 default: build
 
+xcode_local_flags := "-derivedDataPath .build/DerivedData -clonedSourcePackagesDirPath .build/SourcePackages -disablePackageRepositoryCache -skipPackageUpdates -jobs 2"
+
 # Regenerate TimberVox.xcodeproj from project.yml (run after any file add/move/delete)
 generate:
     xcodegen generate
@@ -8,19 +10,28 @@ build: generate
     xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug build
 
 check-build: generate
-    xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug -derivedDataPath .build/DerivedData CODE_SIGNING_ALLOWED=NO build
+    xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug {{xcode_local_flags}} CODE_SIGNING_ALLOWED=NO build
 
 format:
-    swift format --in-place --recursive --configuration .swift-format TimberVox TimberVoxTests
+    swift format --in-place --recursive --configuration .swift-format TimberVox TimberVoxTests TimberVoxUITests
 
 format-check:
-    swift format lint --strict --recursive --configuration .swift-format TimberVox TimberVoxTests
+    swift format lint --strict --recursive --configuration .swift-format TimberVox TimberVoxTests TimberVoxUITests
 
 lint:
     swiftlint lint --strict --config .swiftlint.yml
 
 test: generate
-    xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug -derivedDataPath .build/DerivedData CODE_SIGNING_ALLOWED=NO test
+    xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug {{xcode_local_flags}} CODE_SIGNING_ALLOWED=NO test
+
+# Measures the five-run Home click -> populated History signpost interval.
+test-navigation-performance: generate
+    xcodebuild -quiet -project TimberVox.xcodeproj -scheme TimberVoxNavigationPerformance -configuration Debug {{xcode_local_flags}} test -only-testing:TimberVoxUITests/NavigationPerformanceUITests/testHomeToHistoryPresentation
+
+# One-time, idempotent import of active MacWhisper dictations and their audio.
+import-macwhisper: generate
+    touch /tmp/timbervox-import-macwhisper
+    xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug -derivedDataPath .build/DerivedData CODE_SIGNING_ALLOWED=NO test -only-testing:TimberVoxTests/MacWhisperImportTests/testImportsLiveLibraryWhenExplicitlyEnabled; status=$?; rm -f /tmp/timbervox-import-macwhisper; exit $status
 
 # Dual-speech acceptance: needs YOU. After the spoken "start speaking now" cue, say "purple elephant marmalade sandwich" repeatedly until the stop cue (~15s). Speaker volume is lowered automatically so the system phrase only reaches the tap.
 test-dual-speech: generate
@@ -87,9 +98,6 @@ run-onboarding: build
 
 run-app: build
     open "$(xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug -showBuildSettings 2>/dev/null | awk '/ BUILT_PRODUCTS_DIR/{print $3}')/TimberVox.app" --args --skip-onboarding
-
-run-prototype: build
-    open "$(xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug -showBuildSettings 2>/dev/null | awk '/ BUILT_PRODUCTS_DIR/{print $3}')/TimberVox.app" --args --prototype
 
 open: generate
     open TimberVox.xcodeproj

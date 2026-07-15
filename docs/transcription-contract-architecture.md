@@ -1,6 +1,6 @@
 # Transcription contract and product paths
 
-Status: descriptive architecture, updated 2026-07-09. The code and generated OpenAPI
+Status: descriptive architecture, updated 2026-07-14. The code and generated OpenAPI
 document are canonical. This document explains the boundaries and must not duplicate
 provider/model lists that can be read from the Worker.
 
@@ -13,6 +13,7 @@ provider/model lists that can be read from the Worker.
 - Realtime execution: `TimberVoxAPI/src/routes/realtime.ts` and
   `TimberVoxAPI/src/durable-objects/`
 - Mac orchestration: `TimberVox/Core/Dictation/DictationWorkflow.swift`
+- Mac transcription execution: `TimberVox/Core/Transcription/TranscriptionRuntime.swift`
 - Local history: `TimberVox/Core/Database/TranscriptStore.swift`
 
 The Worker owns provider routing, credentials, configured-provider availability,
@@ -23,7 +24,7 @@ it does not maintain a parallel cloud model list.
 
 | Path | Input | Execution | Durable result |
 | --- | --- | --- | --- |
-| Dictation | Microphone, short form | Batch or realtime | Delivered text plus a simple history record |
+| Dictation | Microphone, short form | Batch or realtime | Canonical transcription artifact, delivered text, and history projections |
 | File transcription | Imported audio/video | Async batch | Editable transcript, runs, speakers, timestamps, artifacts |
 | Meeting | Microphone + system audio | Realtime preview, then batch finalization | Meeting, master audio, final transcript, notes/minutes |
 
@@ -42,8 +43,8 @@ Mac declares filename, media type, and exact byte size
   -> Worker verifies ownership and exact R2 object size
   -> transcription job signs a short-lived R2 GET URL
   -> provider-specific URL adapter
-  -> normalized text, words, segments, and speaker turns
-  -> job result
+  -> normalized TranscriptionArtifact plus lossless provider capture
+  -> typed job result
   -> Mac transform/persist/paste
 ```
 
@@ -56,10 +57,28 @@ AI SDK remains the language-model transform framework. Batch ASR uses owned prov
 adapters because the SDK transcription abstraction downloads URL input into bytes before
 provider dispatch. Deepgram, Mistral, and ElevenLabs all receive the short-lived R2 URL.
 
-Realtime keeps the same normalized timing/speaker result vocabulary, but not the same
-transport implementation. A realtime provider bridge owns connect, audio/control writes,
-event parsing, and close behavior; the Durable Object owns session lifecycle, persistence,
-and usage.
+Realtime keeps the same artifact schema, but not the same transport implementation. A
+realtime provider bridge owns connect, audio/control writes, event parsing, and close
+behavior; the Durable Object owns session lifecycle, artifact persistence, and usage. The
+terminal WebSocket event and recovery endpoint return the artifact as `result`; they do
+not duplicate transcript/model/provider fields beside it.
+
+## Canonical transcription artifact
+
+`TranscriptionArtifact` is the only successful transcription result contract across
+Worker batch jobs, Worker realtime terminal events, cloud Swift adapters, and local
+FluidAudio adapters. There is no legacy result union or client fallback.
+
+The artifact retains exact transcript text; explicitly reports whether tokens, words,
+segments, speaker turns, and audio events are available, omitted, not requested, or
+unsupported; keeps provider-native scores beside normalized scores; records language,
+timing, throughput, memory/GPU, usage, provenance, and warnings when available; and
+captures the original provider response/events as JSON. UI and clipboard text are
+projections from the artifact rather than alternate result contracts.
+
+Provider adapters validate a typed normalization view without using that parsed view as
+the raw capture. The artifact stores the untouched successful JSON response so fields
+unknown to the current adapter schema are not stripped by validation.
 
 ## Workload authentication and ownership
 
@@ -97,18 +116,21 @@ speaker segments, and stable final output in the rebuilt app.
 
 ## Transcript library direction
 
-The current rebuilt GRDB store is enough for dictation. File and meeting transcription
-need a migration that preserves existing rows while adding:
+The current rebuilt GRDB store writes one row for each completed local or cloud attempt,
+including success, no speech, and failure. Its columns hold status/error facts, searchable
+product facts, and recording metadata. Whenever the runtime produced an artifact—including
+no-speech inference or a failed realtime terminal event—timed words, segments, tokens,
+scores, detailed metrics, provenance, warnings, and provider-native data stay inside its
+complete JSON. Text transformation is an embedded capture on the
+same dictation record rather than a second artifact or run; it retains its request,
+timings, every received SSE event, and its terminal outcome or failure. Historical imports
+can have no artifact because their source application never supplied one.
 
-- audio items: source file/master recording and media metadata
-- transcription runs: local/cloud model, status, raw/final text, job linkage, errors
-- timed segments and optional words with speaker IDs
-- context snapshots/attachments used by transforms
-- generated artifacts and FTS
-
-Failed and no-speech runs remain visible. Manual reruns create linked runs against the
-same audio item. Proven old-app caption renderers are ports to evaluate, not architecture
-to bulk-copy.
+File and meeting transcription will need additional persistence when those product paths
+are implemented, but this document does not pre-approve a second run model or a table-per-
+metric schema. Their storage must be designed from the concrete workflow and inspection/
+export requirements at that time. Proven old-app caption renderers are ports to evaluate,
+not architecture to bulk-copy.
 
 ## Live acceptance
 

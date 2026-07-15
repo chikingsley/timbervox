@@ -25,15 +25,18 @@ final class DictationController: @unchecked Sendable {
   private(set) var lastRecordingDuration: TimeInterval = 0
   private(set) var lastTranscript: String?
   private(set) var lastDeliveryNote: String?
+  private(set) var lastFailure: DictationFailure?
   private(set) var statusMessage: String?
   private(set) var liveTranscript = ""
+  private(set) var processingText = ""
   private(set) var recordingLevel: CGFloat = 0
+  private(set) var historyRevision = 0
 
   let spectrum = AudioSpectrumMonitor()
 
   private let logger = TimberVoxLog.dictation
   private let workflow: DictationWorkflow
-  private let pasteService = PasteService()
+  private let textDelivery = TextDeliveryService()
   @ObservationIgnored private var startTask: Task<Void, Never>?
 
   var isRecording: Bool {
@@ -91,7 +94,7 @@ final class DictationController: @unchecked Sendable {
 
   func copyLastTranscript() {
     guard let lastTranscript else { return }
-    pasteService.copy(lastTranscript)
+    textDelivery.copy(lastTranscript)
     lastDeliveryNote = "Copied to your clipboard"
   }
 
@@ -115,6 +118,7 @@ final class DictationController: @unchecked Sendable {
       claimEscapeKey()
     } catch {
       await workflow.cancel()
+      lastFailure = DictationFailure.recording(error)
       statusMessage = "Recording failed: \(error.localizedDescription)"
       logger.error("Start failed: \(error.localizedDescription)")
       finishDictation()
@@ -128,7 +132,9 @@ final class DictationController: @unchecked Sendable {
         lastRecordingDuration = outcome.duration
         lastTranscript = outcome.finalText
         lastDeliveryNote = outcome.deliveryNote
+        lastFailure = nil
         statusMessage = outcome.persistenceWarning
+        historyRevision += 1
       }
     } catch {
       await workflow.cancel()
@@ -137,6 +143,10 @@ final class DictationController: @unchecked Sendable {
       {
         lastRecordingURL = recording.url
         lastRecordingDuration = recording.duration
+        lastFailure = workflowError.failure
+        historyRevision += 1
+      } else {
+        lastFailure = DictationFailure.recording(error)
       }
       statusMessage = error.localizedDescription
       logger.error("Transcription failed: \(error.localizedDescription)")
@@ -148,8 +158,10 @@ final class DictationController: @unchecked Sendable {
     liveTranscript = ""
     lastTranscript = nil
     lastDeliveryNote = nil
+    lastFailure = nil
     statusMessage = nil
     recordingLevel = 0
+    processingText = ""
     spectrum.reset()
   }
 
@@ -176,6 +188,11 @@ final class DictationController: @unchecked Sendable {
           self?.liveTranscript = transcript
         }
       },
+      onProcessingText: { [weak self] text in
+        Task { @MainActor in
+          self?.processingText = text
+        }
+      },
       onRealtimeError: { [weak self] message in
         Task { @MainActor in
           self?.statusMessage = "Realtime error: \(message)"
@@ -194,6 +211,7 @@ final class DictationController: @unchecked Sendable {
     releaseEscapeKey()
     state = .transcribing
     await workflow.cancel()
+    lastFailure = DictationFailure.recording(message: message)
     statusMessage = "Recording failed: \(message)"
     finishDictation()
   }

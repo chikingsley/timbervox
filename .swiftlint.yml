@@ -3,6 +3,7 @@ strict: true
 included:
   - TimberVox
   - TimberVoxTests
+  - TimberVoxUITests
 
 excluded:
   - .build

@@ -1,5 +1,10 @@
 import { LANGUAGE_MODEL_MAP } from "./language-models";
 import {
+  languageModelSpeed,
+  realtimeSpeed,
+  transcriptionAccuracy,
+} from "./presentation";
+import {
   BATCH_ASR_MODEL_MAP,
   REALTIME_ASR_MODEL_MAP,
 } from "./transcription-routes";
@@ -61,8 +66,11 @@ export const publicModelCatalog = (): PublicModelSpec[] => {
   for (const [id, model] of Object.entries(LANGUAGE_MODEL_MAP)) {
     models.set(id, {
       id,
+      intelligence: model.intelligence,
       kind: "language",
       provider: model.provider,
+      reasoningProfile: model.callPolicy.reasoningProfile,
+      speed: languageModelSpeed(id),
       upstreamModel: model.upstreamModel,
     });
   }
@@ -73,6 +81,7 @@ export const publicModelCatalog = (): PublicModelSpec[] => {
       acceptedOptions: {
         batch: acceptedOptions,
       },
+      accuracy: transcriptionAccuracy(id),
       id,
       kind: "transcription",
       provider: model.provider,
@@ -115,6 +124,7 @@ export const publicModelCatalog = (): PublicModelSpec[] => {
           acceptedOptions
         ),
         routes: mergeRoutes(existing.routes, "realtime", realtimeRoute),
+        speed: realtimeSpeed(),
         supportedLanguages: mergeSupportedLanguages(
           existing.supportedLanguages,
           model.supportedLanguages
@@ -128,12 +138,14 @@ export const publicModelCatalog = (): PublicModelSpec[] => {
       acceptedOptions: {
         realtime: acceptedOptions,
       },
+      accuracy: transcriptionAccuracy(publicId),
       id: publicId,
       kind: "transcription",
       provider: model.provider,
       routes: {
         realtime: realtimeRoute,
       },
+      speed: realtimeSpeed(),
       supportedLanguages: copy(model.supportedLanguages),
       transports: ["realtime"],
       upstreamModel: model.upstreamModel,

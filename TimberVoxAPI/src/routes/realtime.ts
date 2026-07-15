@@ -7,6 +7,7 @@ import {
 } from "../ai/models/transcription-routes";
 import type { RealtimeAsrModelEntry } from "../ai/models/types";
 import { terminalSessionEvent } from "../ai/realtime/protocol";
+import { TranscriptionArtifactSchema } from "../ai/transcription/artifact";
 import { authenticateCredential } from "../auth/service";
 import type { Env } from "../bindings";
 import { newId } from "../lib/ids";
@@ -136,24 +137,20 @@ const realtimeSessionResultRoute = createRoute({
     },
     401: { content: JsonErrorContent, description: "Unauthorized." },
     404: { content: JsonErrorContent, description: "Session not found." },
+    500: {
+      content: JsonErrorContent,
+      description: "Stored transcription artifact is unavailable or invalid.",
+    },
   },
   summary: "Recover realtime ASR session result",
   tags: ["Realtime"],
 });
 
 interface RealtimeSessionRow {
-  audio_bytes: number;
-  audio_seconds: number | null;
-  ended_at: string | null;
   error: string | null;
   id: string;
-  language: string | null;
-  message_count: number;
-  model: string;
-  provider: "deepgram" | "mistral";
-  started_at: string;
   status: "failed" | "succeeded";
-  transcript: string | null;
+  transcript_json_key: string | null;
 }
 
 export const registerRealtimeRoutes = (app: App): void => {
@@ -262,33 +259,33 @@ export const registerRealtimeRoutes = (app: App): void => {
       return c.json({ error: "unauthorized" }, 401);
     }
     const row = await c.env.DB.prepare(
-      `SELECT id, provider, model, language, status, transcript,
-              audio_bytes, audio_seconds, message_count, error,
-              started_at, ended_at
+      `SELECT id, status, error, transcript_json_key
          FROM realtime_sessions
-        WHERE id = ? AND owner_user_id = ?`
+        WHERE id = ? AND owner_user_id = ? AND ended_at IS NOT NULL`
     )
       .bind(c.req.valid("param").session_id, auth.userId)
       .first<RealtimeSessionRow>();
-    if (!row?.ended_at) {
+    if (!row) {
       return c.json({ error: "realtime session not found" }, 404);
+    }
+    if (!row.transcript_json_key) {
+      return c.json({ error: "transcription artifact is unavailable" }, 500);
+    }
+    const stored = await c.env.ARTIFACTS.get(row.transcript_json_key);
+    if (!stored) {
+      return c.json({ error: "transcription artifact is unavailable" }, 500);
+    }
+    const artifact = TranscriptionArtifactSchema.safeParse(await stored.json());
+    if (!artifact.success) {
+      return c.json({ error: "stored transcription artifact is invalid" }, 500);
     }
     return c.json(
       terminalSessionEvent(
         {
-          audioBytes: row.audio_bytes,
-          audioSeconds: row.audio_seconds,
-          endedAt: row.ended_at,
           error: row.error,
-          language: row.language,
-          messageCount: row.message_count,
-          model: row.model,
-          provider: row.provider,
-          sampleRate: null,
+          result: artifact.data,
           sessionId: row.id,
-          startedAt: row.started_at,
           status: row.status,
-          transcript: row.transcript ?? "",
         },
         0
       ),

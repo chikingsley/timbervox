@@ -1,9 +1,11 @@
+import AppKit
 import Foundation
 
 struct DictationWorkflowCallbacks: Sendable {
   var onLevel: @Sendable (Float) -> Void
   var onSamples: @Sendable ([Float]) -> Void
   var onLiveTranscript: @Sendable (String) -> Void
+  var onProcessingText: @Sendable (String) -> Void = { _ in }
   var onRealtimeError: @Sendable (String) -> Void
   var onRecordingError: @Sendable (String) -> Void = { _ in }
 }
@@ -16,7 +18,7 @@ struct DictationResult: Sendable {
   var modeName: String
   var provider: String?
   var language: String?
-  var providerLatencyMs: Double?
+  var wallLatencyMs: Double?
   var duration: TimeInterval
   var audioURL: URL
   var deliveryNote: String
@@ -26,8 +28,14 @@ struct DictationResult: Sendable {
 enum DictationWorkflowError: LocalizedError {
   case alreadyRecording
   case applicationSupportDirectoryUnavailable
+  case emptyTransformation
   case missingActivePlan
-  case recordingPreserved(URL, TimeInterval, String)
+  case failedAttempt(
+    failure: DictationFailure,
+    recordingURL: URL,
+    duration: TimeInterval,
+    persistenceWarning: String?
+  )
 
   var errorDescription: String? {
     switch self {
@@ -35,65 +43,76 @@ enum DictationWorkflowError: LocalizedError {
       "A dictation recording is already active."
     case .applicationSupportDirectoryUnavailable:
       "Application Support is unavailable."
+    case .emptyTransformation:
+      "Text processing completed without returning any text."
     case .missingActivePlan:
       "No dictation mode was active for this recording."
-    case .recordingPreserved(let url, _, let reason):
-      "\(reason) The recording is safe at \(url.lastPathComponent)."
+    case .failedAttempt(let failure, let url, _, let persistenceWarning):
+      [
+        failure.message,
+        "The recording is safe at \(url.lastPathComponent).",
+        persistenceWarning,
+      ]
+      .compactMap { $0 }
+      .joined(separator: " ")
     }
   }
 
   var preservedRecording: (url: URL, duration: TimeInterval)? {
-    guard case .recordingPreserved(let url, let duration, _) = self else { return nil }
+    guard case .failedAttempt(_, let url, let duration, _) = self else { return nil }
     return (url, duration)
+  }
+
+  var failure: DictationFailure? {
+    guard case .failedAttempt(let failure, _, _, _) = self else { return nil }
+    return failure
   }
 }
 
 @MainActor
 final class DictationWorkflow {
-  private let logger = TimberVoxLog.dictation
+  let logger = TimberVoxLog.dictation
   private let recorder: DictationAudioRecorder
-  private let cloud: CloudClients
-  private let pasteService: PasteService
-  private let transcriptStore: TranscriptStore
+  private let transcription: TranscriptionRuntime
+  let textTransform: TextTransformAPIClient
+  let textDelivery: TextDeliveryService
+  let transcriptStore: TranscriptStore
   private let modeStore: ModeStore
   private let catalogStore: TranscriptionModelCatalogStore
-  private let realtimeSession: RealtimeTranscriptionSession
-  private let localBatchTranscription: LocalBatchTranscriptionClient
-  private let localRealtimeSession: LocalRealtimeTranscriptionSession
   private let contextCaptureService: DictationContextCaptureService
   private let playbackPolicy = PlaybackPolicyCoordinator()
 
   private var activePlan: DictationExecutionPlan?
-  private var activeContext: DictationContext?
+  var activeContext: DictationContext?
+  var activeContextSnapshot: DictationContextSnapshot?
   private var activeContextSession: DictationContextCaptureSession?
+  var activeContextWasPersisted = false
+  var activeSourceApplication: SourceApplication?
+  var activeCallbacks: DictationWorkflowCallbacks?
 
   init(
     recorder: DictationAudioRecorder = DictationAudioRecorder(),
-    cloud: CloudClients = .production,
-    pasteService: PasteService = PasteService(),
+    transcription: TranscriptionRuntime = .shared,
+    textTransform: TextTransformAPIClient = .production,
+    textDelivery: TextDeliveryService = TextDeliveryService(),
     transcriptStore: TranscriptStore = .shared,
     modeStore: ModeStore = .shared,
-    catalogStore: TranscriptionModelCatalogStore = .shared,
-    localBatchTranscription: LocalBatchTranscriptionClient = .shared,
-    localRealtimeSession: LocalRealtimeTranscriptionSession = .shared
+    catalogStore: TranscriptionModelCatalogStore = .shared
   ) {
     self.recorder = recorder
-    self.cloud = cloud
-    self.pasteService = pasteService
+    self.transcription = transcription
+    self.textTransform = textTransform
+    self.textDelivery = textDelivery
     self.transcriptStore = transcriptStore
     self.modeStore = modeStore
     self.catalogStore = catalogStore
-    self.localBatchTranscription = localBatchTranscription
-    self.localRealtimeSession = localRealtimeSession
     contextCaptureService = DictationContextCaptureService()
-    realtimeSession = RealtimeTranscriptionSession {
-      cloud.makeRealtimeTranscriptionClient()
-    }
   }
 
   func start(callbacks: DictationWorkflowCallbacks) async throws -> Date {
     guard activePlan == nil else { throw DictationWorkflowError.alreadyRecording }
-    let plan = try await executionPlan()
+    let sourceApplication = DictationWorkflowEnvironment.frontmostApplication()
+    let plan = try await executionPlan(sourceApplication: sourceApplication)
     let startedAt = Date.now
     let contextSession = await contextCaptureService.startSession(
       mode: plan.mode,
@@ -104,7 +123,7 @@ final class DictationWorkflow {
       try await startRealtimeIfNeeded(plan: plan, callbacks: callbacks)
       let sampleHandler = makeSampleHandler(plan: plan, callbacks: callbacks)
       try await recorder.start(
-        writingTo: Self.newRecordingURL(),
+        writingTo: DictationWorkflowEnvironment.newRecordingURL(),
         includesSystemAudio: plan.mode.includesSystemAudio,
         onLevel: callbacks.onLevel,
         onSamples: sampleHandler
@@ -113,8 +132,11 @@ final class DictationWorkflow {
       }
       playbackPolicy.apply(plan.mode.playbackPolicy)
       activePlan = plan
+      activeContextWasPersisted = false
       activeContextSession = contextSession
       activeContext = contextSession?.currentContext
+      activeSourceApplication = sourceApplication
+      activeCallbacks = callbacks
       return startedAt
     } catch {
       contextSession?.cancel()
@@ -126,51 +148,26 @@ final class DictationWorkflow {
   func stop() async throws -> DictationResult? {
     guard let plan = activePlan else { throw DictationWorkflowError.missingActivePlan }
     do {
-      if let activeContextSession {
-        activeContext = await activeContextSession.finish().context
-      }
-      let recording = try await recorder.finish()
-      await playbackPolicy.restore()
+      let recording = try await finishRecording()
       guard let recording else {
         await cancelRealtimeSessions()
         clearActiveSession()
         return nil
       }
       defer { clearActiveSession() }
-
-      let transcription: WorkflowTranscription
-      do {
-        transcription = try await transcribe(recordingURL: recording.url, plan: plan)
-      } catch let error as TimberVoxCloudError {
-        if case .uploadFailed = error {
-          throw DictationWorkflowError.recordingPreserved(
-            recording.url,
-            recording.duration,
-            error.localizedDescription
-          )
-        }
-        throw error
-      }
-      let finalTranscript = try await transform(transcription.rawText, mode: plan.mode)
+      let artifact = try await transcriptionArtifact(for: recording, plan: plan)
+      let textOutput = try await textOutput(for: artifact, recording: recording, plan: plan)
       let persistenceWarning = persist(
         recording: recording,
         plan: plan,
-        transcription: transcription,
-        finalTranscript: finalTranscript
+        artifact: artifact,
+        textOutput: textOutput
       )
-      let deliveryNote = await deliver(finalTranscript)
-      return DictationResult(
-        rawText: transcription.rawText,
-        finalText: finalTranscript,
-        model: plan.route.model,
-        modeID: plan.mode.id,
-        modeName: plan.mode.name,
-        provider: transcription.provider,
-        language: transcription.language,
-        providerLatencyMs: transcription.providerLatencyMs,
-        duration: recording.duration,
-        audioURL: recording.url,
-        deliveryNote: deliveryNote,
+      return await result(
+        recording: recording,
+        plan: plan,
+        artifact: artifact,
+        textOutput: textOutput,
         persistenceWarning: persistenceWarning
       )
     } catch {
@@ -181,6 +178,17 @@ final class DictationWorkflow {
     }
   }
 
+  private func finishRecording() async throws -> (url: URL, duration: TimeInterval)? {
+    if let activeContextSession {
+      let snapshot = await activeContextSession.finish()
+      activeContextSnapshot = snapshot
+      activeContext = snapshot.context
+    }
+    let recording = try await recorder.finish()
+    await playbackPolicy.restore()
+    return recording
+  }
+
   func cancel() async {
     await cancelRealtimeSessions()
     activeContextSession?.cancel()
@@ -189,16 +197,18 @@ final class DictationWorkflow {
     clearActiveSession()
   }
 
-  private func executionPlan() async throws -> DictationExecutionPlan {
+  private func executionPlan(sourceApplication: SourceApplication?) async throws -> DictationExecutionPlan {
     await catalogStore.refreshIfNeeded()
     guard !catalogStore.models.isEmpty else {
       let reason = catalogStore.lastError ?? "The transcription catalog did not contain any models."
-      throw TimberVoxCloudError.configuration("Transcription model catalog unavailable: \(reason)")
+      throw TranscriptionRuntimeError.configuration("Transcription model catalog unavailable: \(reason)")
     }
-    let currentMode = modeStore.activeMode
+    let currentMode = modeStore.mode(
+      forSourceApplicationBundleIdentifier: sourceApplication?.bundleIdentifier
+    )
     let normalizedMode = catalogStore.normalized(currentMode)
     if normalizedMode != currentMode {
-      modeStore.updateActive { $0 = normalizedMode }
+      modeStore.updateMode(id: currentMode.id) { $0 = normalizedMode }
     }
     return try ModeCatalogResolver.executionPlan(
       for: normalizedMode,
@@ -212,22 +222,12 @@ final class DictationWorkflow {
   ) async throws {
     await cancelRealtimeSessions()
     guard plan.transport == .realtime else { return }
-    switch plan.route.executor {
-    case .cloud:
-      try await realtimeSession.start(
-        model: plan.route.model,
-        language: plan.mode.languageCode,
-        onTranscript: callbacks.onLiveTranscript,
-        onError: callbacks.onRealtimeError
-      )
-    case .local(let route):
-      await localBatchTranscription.releaseLoadedModel()
-      try await localRealtimeSession.start(
-        route: route,
-        language: plan.mode.languageCode,
-        onTranscript: callbacks.onLiveTranscript
-      )
-    }
+    try await transcription.startRealtime(
+      route: plan.route,
+      language: plan.mode.languageCode,
+      onTranscript: callbacks.onLiveTranscript,
+      onError: callbacks.onRealtimeError
+    )
   }
 
   private func makeSampleHandler(
@@ -237,161 +237,52 @@ final class DictationWorkflow {
     { [weak self] samples in
       callbacks.onSamples(samples)
       Task { @MainActor in
-        await self?.sendRealtimePCM(samples, plan: plan, onError: callbacks.onRealtimeError)
+        await self?.sendRealtimePCM(samples, plan: plan)
       }
     }
   }
 
-  private func transcribe(
+  func transcribe(
     recordingURL: URL,
     plan: DictationExecutionPlan
-  ) async throws -> WorkflowTranscription {
+  ) async throws -> TranscriptionArtifact {
     if plan.transport == .realtime {
-      let rawText: String
-      switch plan.route.executor {
-      case .cloud:
-        rawText = try await realtimeSession.finish()
-      case .local:
-        rawText = try await localRealtimeSession.finish()
-      }
-      return WorkflowTranscription(
-        rawText: rawText,
-        provider: plan.route.provider,
-        providerLatencyMs: nil,
-        language: plan.mode.languageCode
-      )
+      return try await transcription.finishRealtime()
     }
 
-    switch plan.route.executor {
-    case .cloud:
-      let outcome = try await cloud.batchTranscription.transcribe(
-        wavAt: recordingURL,
-        model: plan.route.model,
-        language: plan.mode.languageCode,
-        diarize: plan.mode.diarizationEnabled
-      )
-      return WorkflowTranscription(
-        rawText: outcome.rawText,
-        provider: outcome.provider,
-        providerLatencyMs: outcome.providerLatencyMs,
-        language: outcome.language ?? plan.mode.languageCode
-      )
-    case .local(let route):
-      await localRealtimeSession.releaseLoadedModel()
-      let start = Date.now
-      let rawText = try await localBatchTranscription.transcribe(
-        wavAt: recordingURL,
-        route: route
-      )
-      let latency = Date.now.timeIntervalSince(start) * 1_000
-      return WorkflowTranscription(
-        rawText: rawText,
-        provider: plan.route.provider,
-        providerLatencyMs: latency,
-        language: plan.mode.languageCode
-      )
-    }
-  }
-
-  private func transform(_ rawTranscript: String, mode: DictationMode) async throws -> String {
-    let context =
-      activeContext
-      ?? (mode.usesTextTransform ? SystemDictationContextProvider.capture(for: mode) : nil)
-    guard let request = mode.textTransformRequest(rawTranscript: rawTranscript, context: context) else {
-      return rawTranscript
-    }
-    let outcome = try await cloud.textTransform.transform(request: request)
-    let text = outcome.text.trimmingCharacters(in: .whitespacesAndNewlines)
-    return text.isEmpty ? rawTranscript : text
-  }
-
-  private func persist(
-    recording: (url: URL, duration: TimeInterval),
-    plan: DictationExecutionPlan,
-    transcription: WorkflowTranscription,
-    finalTranscript: String
-  ) -> String? {
-    do {
-      _ = try transcriptStore.save(
-        text: finalTranscript,
-        rawText: plan.mode.usesTextTransform ? transcription.rawText : nil,
-        duration: recording.duration,
-        model: plan.route.model,
-        modeID: plan.mode.id,
-        modeName: plan.mode.name,
-        audioPath: recording.url.path,
-        provider: transcription.provider,
-        providerLatencyMs: transcription.providerLatencyMs,
-        language: transcription.language,
-        transformPreset: plan.mode.usesTextTransform ? plan.mode.textTransformPreset.rawValue : nil,
-        transformModel: plan.mode.usesTextTransform ? plan.mode.textTransformModelID : nil
-      )
-      return nil
-    } catch {
-      logger.error("Transcript persistence failed: \(error.localizedDescription)")
-      return "Transcript history was not saved: \(error.localizedDescription)"
-    }
-  }
-
-  private func deliver(_ transcript: String) async -> String {
-    if await pasteService.paste(transcript) {
-      return "Pasted where you were typing"
-    }
-    pasteService.copy(transcript)
-    return "On your clipboard — press ⌘V (auto-paste needs Accessibility)"
+    return try await transcription.transcribeBatch(
+      audioURL: recordingURL,
+      route: plan.route,
+      language: plan.mode.languageCode,
+      diarize: plan.mode.diarizationEnabled
+    )
   }
 
   private func clearActiveSession() {
-    activeContextSession?.cleanupAttachments()
+    if !activeContextWasPersisted {
+      activeContextSession?.cleanupAttachments()
+    }
     activePlan = nil
     activeContext = nil
+    activeContextSnapshot = nil
     activeContextSession = nil
+    activeContextWasPersisted = false
+    activeSourceApplication = nil
+    activeCallbacks = nil
   }
 
-  private static func newRecordingURL() throws -> URL {
-    guard
-      let applicationSupport = FileManager.default.urls(
-        for: .applicationSupportDirectory,
-        in: .userDomainMask
-      ).first
-    else {
-      throw DictationWorkflowError.applicationSupportDirectoryUnavailable
-    }
-    let formatter = DateFormatter()
-    formatter.dateFormat = "yyyyMMdd-HHmmss"
-    let name = "Recording-\(formatter.string(from: .now)).wav"
-    return applicationSupport.appendingPathComponent("TimberVox/Recordings/\(name)")
-  }
 }
 
 private extension DictationWorkflow {
   func sendRealtimePCM(
     _ samples: [Float],
-    plan: DictationExecutionPlan,
-    onError: @escaping @Sendable (String) -> Void
+    plan: DictationExecutionPlan
   ) async {
     guard plan.transport == .realtime else { return }
-    switch plan.route.executor {
-    case .cloud:
-      await realtimeSession.sendPCM(samples)
-    case .local:
-      do {
-        try await localRealtimeSession.sendPCM(samples)
-      } catch {
-        onError(error.localizedDescription)
-      }
-    }
+    await transcription.sendRealtimePCM(samples)
   }
 
   func cancelRealtimeSessions() async {
-    await realtimeSession.cancel()
-    await localRealtimeSession.cancel()
+    await transcription.cancelRealtime()
   }
-}
-
-private struct WorkflowTranscription {
-  var rawText: String
-  var provider: String?
-  var providerLatencyMs: Double?
-  var language: String?
 }

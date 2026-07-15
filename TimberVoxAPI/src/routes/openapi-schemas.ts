@@ -1,5 +1,7 @@
 import { z } from "@hono/zod-openapi";
 
+import { TranscriptionArtifactSchema } from "../ai/transcription/artifact";
+
 const ErrorResponse = z
   .object({
     error: z.string(),
@@ -27,7 +29,7 @@ export const JobView = z
     kind: z.literal("transcription"),
     progress: z.number(),
     queued_at: z.string().nullable(),
-    result: z.record(z.string(), z.unknown()).nullable(),
+    result: z.union([TranscriptionArtifactSchema, z.null()]),
     started_at: z.string().nullable(),
     status: z.enum(["pending", "queued", "running", "succeeded", "failed"]),
     updated_at: z.string(),
@@ -43,6 +45,7 @@ const TextMessage = z
 
 export const TextRequestSchema = z
   .object({
+    maxOutputTokens: z.number().int().positive().optional(),
     messages: z.array(TextMessage).min(1),
     model: z.string().min(1),
     output: z
@@ -57,18 +60,25 @@ export const TextRequestSchema = z
     providerOptions: z.record(z.string(), z.unknown()).optional(),
     temperature: z.number().optional(),
   })
+  .strict()
   .openapi("TextRequest");
+
+export const TextStreamRequestSchema = TextRequestSchema.omit({ output: true })
+  .strict()
+  .openapi("TextStreamRequest");
 
 const TextResponseBase = z.object({
   finishReason: z.string(),
   model: z.string(),
   provider: z.string(),
+  providerLatencyMs: z.number(),
   upstreamModel: z.string(),
   usage: z.object({
     inputTokens: z.number().optional(),
     outputTokens: z.number().optional(),
     totalTokens: z.number().optional(),
   }),
+  warnings: z.array(z.unknown()).optional(),
 });
 
 export const TextResponse = z
@@ -85,23 +95,15 @@ export const TextResponse = z
   .openapi("TextResponse");
 
 const RealtimeTerminalBase = z.object({
-  audio_bytes: z.number().int().nonnegative(),
-  ended_at: z.string(),
-  language: z.string().nullable(),
-  message_count: z.number().int().nonnegative(),
-  model: z.string(),
   protocol_version: z.literal(1),
-  provider: z.enum(["deepgram", "mistral"]),
+  result: TranscriptionArtifactSchema,
   sequence: z.number().int().nonnegative(),
   session_id: z.string(),
-  started_at: z.string(),
-  transcript: z.string(),
 });
 
 export const RealtimeSessionResultResponse = z
   .discriminatedUnion("type", [
     RealtimeTerminalBase.extend({
-      audio_seconds: z.number().nonnegative().nullable(),
       status: z.literal("succeeded"),
       type: z.literal("session.completed"),
     }),

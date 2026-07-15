@@ -21,6 +21,38 @@ const ObjectTransformResponse = z.object({
   outputType: z.literal("object"),
 });
 
+const TextStreamEvent = z.discriminatedUnion("type", [
+  z.object({
+    sequence: z.number().int().nonnegative(),
+    type: z.literal("stream.started"),
+  }),
+  z.object({
+    delta: z.string(),
+    sequence: z.number().int().nonnegative(),
+    type: z.literal("text.delta"),
+  }),
+  z.object({
+    sequence: z.number().int().nonnegative(),
+    type: z.literal("stream.completed"),
+    usage: z.object({ output_tokens: z.number().optional() }),
+  }),
+  z.object({
+    error: z.object({ message: z.string() }),
+    sequence: z.number().int().nonnegative(),
+    type: z.literal("stream.failed"),
+  }),
+]);
+
+const parseSseEvents = (body: string): z.infer<typeof TextStreamEvent>[] =>
+  body.split("\n\n").flatMap((frame) => {
+    const data = frame
+      .split("\n")
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice("data:".length).trimStart())
+      .join("\n");
+    return data ? [TextStreamEvent.parse(JSON.parse(data))] : [];
+  });
+
 const configuredAPIKey = (): string => {
   const value = process.env.TIMBERVOX_API_KEY?.trim();
   if (!value) {
@@ -80,5 +112,35 @@ describe("deployed Worker and Cloudflare D1", () => {
     });
     expect(response.status).toBe(200);
     expect(ObjectTransformResponse.parse(await response.json())).toBeDefined();
+  });
+
+  it("streams normalized text events through the deployed Worker", async () => {
+    const response = await fetch(`${baseURL}/v1/text/stream`, {
+      body: JSON.stringify({
+        maxOutputTokens: 32,
+        messages: [
+          {
+            content: "Return exactly five words about desert rain.",
+            role: "user",
+          },
+        ],
+        model: "mistral-mistral-small-latest",
+        temperature: 0,
+      }),
+      headers: {
+        Authorization: `Bearer ${configuredAPIKey()}`,
+        "content-type": "application/json",
+      },
+      method: "POST",
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
+
+    const events = parseSseEvents(await response.text());
+    expect(events.at(0)?.type).toBe("stream.started");
+    expect(events.some((event) => event.type === "text.delta")).toBe(true);
+    const terminal = events.at(-1);
+    expect(terminal?.type).toBe("stream.completed");
+    expect(terminal?.sequence).toBe(events.length - 1);
   });
 });

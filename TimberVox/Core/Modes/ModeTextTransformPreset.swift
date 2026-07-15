@@ -9,27 +9,37 @@ enum ModeTextTransformPreset: String, CaseIterable, Codable, Identifiable, Senda
 
   var id: String { rawValue }
 
+  static let referenceOrder: [Self] = [
+    .superPrompt,
+    .voiceToText,
+    .message,
+    .email,
+    .note,
+    .meeting,
+    .custom,
+  ]
+
   var label: String {
     switch self {
-    case .voiceToText: "Voice to text"
+    case .voiceToText: "Voice to Text"
     case .superPrompt: "Super"
     case .message: "Message"
     case .note: "Note"
-    case .email: "Email"
-    case .meeting: "Meeting"
+    case .email: "Mail"
+    case .meeting: "Meeting Summary"
     case .custom: "Custom"
     }
   }
 
   var systemImage: String {
     switch self {
-    case .voiceToText: "mic.fill"
+    case .voiceToText: "mic"
     case .superPrompt: "sparkles"
-    case .message: "bubble.left.fill"
+    case .message: "message"
     case .note: "note.text"
-    case .email: "envelope.fill"
-    case .meeting: "person.2.fill"
-    case .custom: "slider.horizontal.3"
+    case .email: "envelope"
+    case .meeting: "person.2"
+    case .custom: "square.on.square"
     }
   }
 

@@ -1,3 +1,7 @@
+import {
+  type TranscriptionArtifact,
+  TranscriptionArtifactSchema,
+} from "../ai/transcription/artifact";
 import type { Env, JobKind, JobRow, JobStatus } from "../bindings";
 import { newId } from "../lib/ids";
 
@@ -97,7 +101,7 @@ export const setJobStatus = async (
   patch: {
     error?: string | null;
     progress?: number;
-    result?: unknown;
+    result?: TranscriptionArtifact;
     startedAt?: string;
   } = {}
 ): Promise<void> => {
@@ -135,7 +139,9 @@ export const jobView = (job: JobRow) => ({
   kind: job.kind,
   progress: job.progress,
   queued_at: job.queued_at,
-  result: job.result_json ? JSON.parse(job.result_json) : null,
+  result: job.result_json
+    ? TranscriptionArtifactSchema.parse(JSON.parse(job.result_json))
+    : null,
   started_at: job.started_at,
   status: job.status,
   updated_at: job.updated_at,

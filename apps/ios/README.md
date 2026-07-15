@@ -1,17 +1,23 @@
 # TimberVox iOS
 
-Expo/React Native host app plus a native SwiftUI custom keyboard extension. The host app owns microphone capture and the Voxtral realtime WebSocket; the keyboard communicates with it through the shared App Group.
+Expo/React Native host app plus a native SwiftUI custom keyboard extension. The keyboard communicates with the app through the shared App Group.
 
-## Current prototype
+[`ARCHITECTURE.md`](ARCHITECTURE.md) is the source of truth for the rebuild, page/component map, native boundaries, decoded Shortcut contract, cleanup rules, and iPhone acceptance lanes.
 
-- Expo SDK 57 development app with background audio recording
+## Current experimental slice
+
+- First-run microphone and keyboard setup with an app-settings recovery action
+- Minimal Home recorder that starts and stops realtime dictation directly
+- Local SQLite History with searchable transcripts, retained WAV audio, playback, sharing, and deletion
+- Settings with live keyboard/full-access evidence and background-session status
+- Expo SDK 57 host app with background audio recording
 - Voxtral realtime streaming through `wss://timbervox.peacockery.studio/v1/realtime`
-- API key stored in the iOS Keychain
+- App-owned TimberVox API authentication injected at build time
 - SwiftUI keyboard extension with tap typing, a visible swipe trail, local prototype swipe decoding, three predictions, and a bottom-right dictation control
 - Live partial text in the keyboard and final text insertion into the current field
 - Debug-only direct launch of `timbervox://session` when no session is active
 
-The swipe decoder is intentionally a small geometric prototype, not yet a SwiftKey-quality language model. The keyboard extension itself cannot capture microphone audio on iOS.
+The swipe decoder is intentionally a small geometric prototype, not yet a SwiftKey-quality language model. The screen UI and background-session controller are experiments being rebuilt deliberately; they are not the accepted product shell.
 
 ## Run
 
@@ -25,10 +31,12 @@ pnpm ios
 
 This requires a development build; Expo Go cannot contain the keyboard extension. After installing, enable **Settings > General > Keyboard > Keyboards > Add New Keyboard > TimberVoxKeyboard** and grant Full Access so the App Group bridge can operate.
 
-In the TimberVox app, save an API key and start a session. The app may then stay in the background while the keyboard's microphone button starts and stops realtime dictation.
+Complete setup, or continue into the app-only recorder. The Home microphone records and transcribes directly. A background session may then stay active while the keyboard's microphone button starts and stops realtime dictation. Users never enter an API key.
+
+The current local experiment reads `TIMBERVOX_API_KEY` from the environment or the ignored repository file at `Config/keys/TimberVoxAPI.local.xcconfig`. This embeds the credential in Expo config and is not TestFlight-safe. Before upload, it must be replaced with a revocable app-to-Worker mobile session stored in iOS secure storage; the static credential may remain only as a local-development bridge.
 
 ## Personal and distribution modes
 
 The Debug keyboard tries to open the TimberVox host app when a session is not running. This is useful for an Xcode-installed personal development build, but it is deliberately compiled out of Release because App Review guideline 4.4.1 forbids a keyboard extension from launching apps other than Settings.
 
-The release-safe flow is to start the host session first, either in the app or from a future Shortcut/App Intent, and then return to the destination app. A signed physical-device run is required to validate background survival, App Group delivery, microphone behavior, and keyboard insertion end to end.
+The next native gate is a signed `AudioRecordingIntent` plus Live Activity spike on a physical iPhone. It must establish whether the Expo JavaScript runtime remains available during system-launched recording before capture ownership is finalized. App Group delivery, microphone behavior, Shortcut start/stop, returned transcript, and keyboard insertion all require physical-device acceptance.

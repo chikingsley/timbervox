@@ -6,11 +6,11 @@ This is the product and architecture roadmap. `TODO.md` is the canonical active 
 
 The rebuild is no longer a skeleton. The Mac target contains a visible shell, onboarding, cloud dictation, auto-paste behavior, GRDB history, settings, a passive recording indicator, modes, text transforms, app-side RevenueCat purchases, and authenticated batch/realtime Worker clients.
 
-The major runtime boundary refactor is complete. `DictationController` owns observable UI state and commands; `DictationWorkflow` owns record → transcribe → transform → persist → deliver; realtime connection and transcript assembly live under `Core/RealtimeTranscription`; mode persistence and capability interpretation are separated; and the Worker catalog is authoritative for routes, languages, and diarization.
+The major runtime boundary refactor is complete. `DictationController` owns observable UI state and commands; `DictationWorkflow` owns record → transcribe → transform → persist → deliver; `TranscriptionRuntime` owns batch/realtime and cloud/local route execution; provider implementations live under `Core/Transcription`; mode persistence and capability interpretation are separated; and the Worker catalog is authoritative for cloud routes, languages, and diarization.
 
 The copied text-transform cleanup is now complete. The obsolete local language-model catalog/provider protocol was removed. The live prompt contract consists of `TextMessage`, presets, prompt assembly, a recording-scoped Dictation context session, and the Worker text-transform route. Context capture now spans record start through stop and includes application/window/focused text, selected-text changes, a three-second pre-recording clipboard window, clipboard changes and attachment metadata, and optional start/end screen OCR.
 
-Automated gates currently pass: Apple Swift Format, strict SwiftLint with zero violations, a real temporary-GRDB persistence integration, the unsigned Debug build, Worker checks, and a real deployed-Worker/deployed-D1 integration. Mocked Swift and Worker contract/unit suites were removed. Signed live acceptance has covered mixed microphone/system capture, local and cloud batch/realtime providers, playback policies, endurance, dual speech, local record-to-delivery, and the five production text-transform presets. These checks still do not prove global shortcuts, macOS focus, paste delivery in third-party apps, permission recovery, or the sample-backed prototype UI.
+Earlier accepted runs covered the real temporary-GRDB persistence integration, unsigned Debug build, Worker checks, deployed-Worker/deployed-D1 integration, mixed microphone/system capture, local and cloud batch/realtime providers, playback policies, endurance, dual speech, local record-to-delivery, and the five production text-transform presets. Later source changes require their own gates and live acceptance; this July 14 backend pass intentionally runs only Apple Swift Format and SwiftLint. It does not prove global shortcuts, macOS focus, paste delivery in third-party apps, permission recovery, production UI interactions, or the undeployed text-stream route.
 
 The production Worker is deployed at `timbervox.peacockery.studio`. It accepts only configured static bearer API keys, exposes the normalized catalog, uses direct signed R2 single/multipart uploads, verifies exact completed size, sends signed R2 GET URLs to batch providers, supports realtime WebSockets through a Durable Object, records usage/ownership in the deployed Cloudflare D1, and has passed production API-key and upload acceptance. Wrangler development uses remote bindings; no local D1 state or local-D1 test path remains.
 
@@ -24,7 +24,7 @@ The next work is verification and one contained History cleanup, not another gen
 2. Verify global toggle/stop/cancel, paste into TextEdit and a browser/editor with the TimberVox window closed, and clipboard restoration behavior.
 3. Accept application/window, selected text, clipboard boundaries, file/image metadata, and screen OCR in controlled macOS apps.
 4. Persist the exact context snapshot and transform request/response metadata with each run, then verify History across quit/relaunch, search, playback, and rerun lineage.
-5. Promote accepted prototype designs into production one surface at a time, connected to real runtime state and verified in empty/loading/error/populated states.
+5. Reconcile the accepted external UI mock-up with production one surface at a time, connected to real runtime state and verified in empty/loading/error/populated states through the launched app.
 6. Repair RevenueCat Test Store products/packages and run purchase, cancellation, failure, entitlement-display, and restore acceptance as a separate app billing lane.
 
 ## Product paths
@@ -57,6 +57,12 @@ TimberVox/
   Core/      shared workflows, domain models, storage, clients, and macOS services
 ```
 
+Stateful types live with the domain they own. `Core/APIConnector` owns TimberVox
+service connectivity, `Core/Delivery` owns clipboard and automatic-paste delivery,
+`Core/Transcription/FluidAudio/ModelManagement` owns FluidAudio package downloads,
+verification, progress, shared-asset deletion, and model-retention preferences, and
+`Core/Database` owns durable History rows. There is no global Stores folder.
+
 A folder is created when real files land, never as a placeholder. A sidebar tab exists only when its visible behavior and runtime path work.
 
 ## Current architecture
@@ -67,35 +73,37 @@ A folder is created when real files land, never as a placeholder. A sidebar tab 
 
 Ordinary dictation records the microphone to a canonical 16 kHz mono WAV. A mode can additionally include system audio through one private Core Audio aggregate device containing the microphone and a mono process tap. The HAL synchronizes both sources; TimberVox resamples each stream, writes temporary microphone/system stems plus the canonical mixed recording, and sends the same live mixed PCM to realtime transcription when the selected route is realtime. Batch routes consume the mixed recording. Successful short dictation removes its temporary stems after finalization. The old app's misleading either-microphone-or-system behavior is not retained.
 
-Batch transcription is finite request/response orchestration inside `CloudBatchTranscriptionClient`: reserve upload, transfer directly to R2, complete, create a transcription job, and poll only when the synchronous path falls back to the queue.
+Batch transcription is finite request/response orchestration inside `CloudBatchTranscriber`: reserve upload, transfer directly to R2, complete, create a transcription job, and poll only when the Worker explicitly requeues that same job after a transient provider error.
 
-Realtime transcription uses `CloudRealtimeTranscriptionClient` for the authenticated WebSocket and binary PCM/JSON wire contract. `RealtimeTranscriptionSession` owns the app-side lifecycle, while `RealtimeTranscriptAssembler` owns partial/final event composition.
+Realtime transcription uses `CloudRealtimeTranscriptionClient` for the authenticated WebSocket and binary PCM/JSON wire contract. `CloudRealtimeTranscriptionSession` owns the app-side lifecycle, while `CloudRealtimeTranscriptAssembler` owns partial/final event composition. FluidAudio batch and realtime adapters remain separate implementations because they have different model lifecycles and APIs.
 
-### Cloud clients
+`TranscriptionRuntime` is the caller-facing speech-to-text boundary. It selects cloud or FluidAudio execution from `TranscriptionRouteSpec`, owns the active realtime session, and returns only `TranscriptionArtifact`. Dictation and History do not switch on the executor themselves.
 
-`CloudHTTPClient` owns common JSON requests, static bearer authorization, signed uploads, and response validation. `CloudClients` is a composition container—not a barrel export—that creates batch, catalog, transform, and fresh realtime clients with the same base URL and `URLSession`.
+### TimberVox service API
 
-`CloudModelCatalog` contains the decoded Worker contract, `CloudModelCatalogClient` fetches it, and `CloudModelCatalogStore` caches cloud state. `TranscriptionModelCatalogStore` merges those Worker-authoritative routes with the compiled local catalog for Modes and History without sending local audio through the Worker. The Mac never invents a cloud provider route, language list, or diarization capability absent from the Worker catalog.
+`Core/APIConnector` is the macOS adapter to the TimberVox service. `APIConnector` owns common JSON requests, static bearer authorization, signed uploads, and response validation. There is no catch-all client bundle; each operation owns the concrete API dependency it uses.
+
+`ModelCatalog` contains the decoded Worker contract, `ModelCatalogAPIClient` fetches it, and `ModelCatalogStore` caches service state. `TranscriptionModelCatalogStore` merges those Worker-authoritative routes with the compiled local catalog for Modes and History without sending local audio through the Worker. The Mac never invents a cloud provider route, language list, or diarization capability absent from the Worker catalog.
 
 ### Text transforms and context
 
-`TextTransformPreset` defines the built-in and custom instructions. `TextTransformPromptBuilder` produces real system/user messages from the transcript and enabled context. `CloudTextTransformClient` serializes those messages to the Worker, whose Zod request contract feeds AI SDK `generateText`. The Worker requests a Zod-validated `{ text }` structured output and preserves the existing clean `text` API response for Mac clients.
+`TextTransformPreset` defines the built-in and custom instructions. `TextTransformPromptBuilder` produces real system/user messages from the transcript and enabled context. Dictation processing uses the versioned `POST /v1/text/stream` SSE contract so text arrives incrementally. The client validates sequence and provider/model identity and retains every event. `POST /v1/text` remains available for nonstreaming text and object operations.
 
-The inherited Superwhisper response delimiter is no longer part of the prompt, Worker, or Mac contract. Structured output is the only supported text-transform response path.
+The inherited Superwhisper response delimiter is no longer part of the prompt, Worker, or Mac contract. Streamed text and typed object output are explicit API paths rather than delimiter-parsed variants.
 
 `SystemDictationContextProvider` supplies current application/window, focused element, selected text, language/time/locale/computer, and local user information. `DictationContextCaptureService` wraps it in a recording-scoped session, monitors clipboard and selection changes every 300 ms, retains a three-second pre-recording clipboard window, records copied file/image metadata, and optionally captures start/end screenshots with Vision OCR. Screenshot files and clipboard images are local context attachments; the text prompt receives OCR and attachment metadata, not raw multimodal image input. Application and selection access depend on Accessibility permission; screen OCR depends on Screen Recording permission. Vocabulary remains unimplemented.
 
 ### Persistence
 
-GRDB stores dictation records under `~/Library/Application Support/TimberVox/timbervox.sqlite`. The current schema preserves final text, raw text when transformed, recording metadata, mode/model/provider/language/latency, transform metadata, and the audio path.
+GRDB stores dictation records under `~/Library/Application Support/TimberVox/timbervox.sqlite`. A completed attempt uses one row with `succeeded`, `no_speech`, or `failed` status and structured error code/message. Whenever the transcription runtime produces a canonical `TranscriptionArtifact`, it is saved in `transcriptionArtifactJSON`; that includes no-speech inference, a failed realtime terminal event carrying an artifact, and successful transcription followed by failed text processing. Text processing saves one embedded `transformationJSON` capture containing the request, timings, every received stream event, and either its terminal outcome or failure. Context-aware processing saves the exact application/selection/clipboard/screen snapshot and attachment references in one `contextSnapshotJSON` payload on that same row; successful persistence transfers ownership of captured attachment files to History, and deleting the row removes those owned files. The row also keeps final text, raw text when transformed, mode/model/provider/language, transcription wall time, recording metadata, and the audio path as searchable product projections. Timed words, segments, tokens, scores, detailed metrics, provenance, warnings, and provider-native data live only in the canonical artifact rather than duplicated columns or JSON. ASR speed is explicitly RTFx—audio duration divided by processing duration—rather than the opposite real-time-factor convention. The migration retains previously stored scalar latency and segment payloads under explicit `legacyProviderLatencyMs` and `legacySegmentsJSON` names for inspection/export, but new rows never populate them. Historical external imports alone can lack an artifact because none existed at the source.
 
-The immediate persistence expansion records the exact dictation context snapshot, transform request/response metadata, and attachment references so a transformed run can be inspected and reproduced. The larger File Transcription expansion adds audio items, multiple linked transcription runs, timed segments/words, speakers, artifacts, errors, manual-rerun lineage, and FTS. Failed and no-speech runs remain visible rather than disappearing.
+The remaining dictation persistence work is launched-app acceptance of the exact context snapshot and attachment lifecycle across success and failure paths. File and meeting persistence is designed when those concrete workflows are implemented; this roadmap does not pre-approve a second run object, one column per metric, or a table-per-collection schema.
 
 ## Later product slices
 
 ### Local models
 
-The unified catalog and production dictation workflow now contain FluidAudio-backed Parakeet batch and Nemotron realtime routes. A package lifecycle discovers persistent FluidAudio assets, distinguishes downloaded files from models that successfully loaded, records FluidAudio-version-specific verification, prepares only unverified assets, and deletes shared assets safely. FluidAudio 0.15.5 fixes the former English Nemotron zero-shape load failure. On the Apple M1 test machine, every exposed Parakeet and Nemotron route now downloads, loads, and transcribes real speech; a complete offline system-audio record-to-delivery run also passed through persistence and clipboard delivery. The multilingual encoder still reports an Apple Neural Engine compiler failure before Core ML falls back and completes inference, so this is functional but not clean ANE execution. The remaining vertical slice is lifecycle UI, long/silent/cancel/timeout acceptance, broader Songbird language coverage, and measured storage/performance guidance. VAD, diarization, and keyword spotting remain later research until accepted as complete workflows.
+The unified catalog and production dictation workflow now contain NVIDIA Parakeet batch and Nemotron realtime routes executed locally through FluidAudio. Model/provider presentation and artifact provenance identify NVIDIA as the model maker; FluidAudio is retained as implementation-library metadata. A package lifecycle discovers persistent FluidAudio assets, distinguishes downloaded files from models that successfully loaded, records FluidAudio-version-specific verification, prepares only unverified assets, and deletes shared assets safely. FluidAudio 0.15.5 fixes the former English Nemotron zero-shape load failure. On the Apple M1 test machine, every exposed Parakeet and Nemotron route now downloads, loads, and transcribes real speech; a complete offline system-audio record-to-delivery run also passed through persistence and clipboard delivery. The multilingual encoder still reports an Apple Neural Engine compiler failure before Core ML falls back and completes inference, so this is functional but not clean ANE execution. The remaining vertical slice is lifecycle UI, long/silent/cancel/timeout acceptance, broader Songbird language coverage, and measured storage/performance guidance. VAD, diarization, and keyword spotting remain later research until accepted as complete workflows.
 
 ### Sound feedback
 
@@ -136,7 +144,7 @@ Before shipping: complete Test Store and sandbox purchase/restore acceptance, ve
 - Rich transcript persistence: `old-app/packages/timbervox-core/Sources/TimberVoxCore/Transcripts/`.
 - Local ASR: old Parakeet, FluidAudio, and streaming clients plus the old transcription core.
 - Sound feedback: `old-app/apps/mac/Sources/Services/SoundEffectsService.swift`.
-- Recording indicator ideas: `old-app/apps/mac/Sources/Prototype/Recorders/`.
+- Recording indicator behavior should be evaluated against the current passive, non-activating window implementation and live acceptance checks.
 - Settings concepts: the old core settings model, mined selectively rather than ported wholesale.
 - Caption/export primitives: old transcript/caption renderers, ported only with generated-artifact verification.
 
