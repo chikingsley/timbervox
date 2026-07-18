@@ -6,7 +6,7 @@ import {
   TranscriptionArtifactSchema,
 } from "../../src/ai/transcription/artifact";
 import { readProviderResponse } from "../../src/ai/transcription/http";
-import { app } from "../../src/index";
+import { app, openApiDocumentConfig } from "../../src/index";
 
 describe("transcription artifact contract", () => {
   it("retains fields outside the normalization schema", async () => {
@@ -108,9 +108,8 @@ describe("transcription artifact contract", () => {
     ).toThrow();
   });
 
-  it("publishes the artifact as the only successful job result schema", async () => {
-    const response = await app.request("/openapi.json");
-    const document = (await response.json()) as {
+  it("publishes the artifact as the only successful job result schema", () => {
+    const document = app.getOpenAPI31Document(openApiDocumentConfig) as {
       components?: {
         schemas?: Record<string, unknown>;
       };

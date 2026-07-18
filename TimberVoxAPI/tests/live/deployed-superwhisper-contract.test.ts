@@ -87,13 +87,19 @@ describe.sequential("deployed Superwhisper-backed API contract", () => {
   });
 
   it("reports no Superwhisper execution-contract drift", async ({ skip }) => {
+    const apiKey = configuredApiKey();
     const adminToken = process.env.TIMBERVOX_ADMIN_TOKEN?.trim();
-    if (!(liveTestsEnabled && adminToken)) {
-      skip("live tests disabled or TIMBERVOX_ADMIN_TOKEN unavailable");
+    if (!(liveTestsEnabled && apiKey && adminToken)) {
+      skip(
+        "live tests disabled or TimberVox API/admin credentials unavailable"
+      );
     }
 
     const response = await fetch(`${baseUrl}/v1/admin/model-inventory`, {
-      headers: { "x-admin-token": adminToken },
+      headers: {
+        ...authorizationHeaders(apiKey),
+        "x-admin-token": adminToken,
+      },
     });
     expect(response.status).toBe(200);
     const report = (await response.json()) as {

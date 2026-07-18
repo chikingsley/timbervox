@@ -1,6 +1,7 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
 import { apiReference } from "@scalar/hono-api-reference";
 
+import { hasValidConfiguredAPIKey } from "./auth/service";
 import type { Env, QueueJobMessage } from "./bindings";
 import { jsonError } from "./http/json";
 import { requestLogger } from "./http/request-log";
@@ -37,22 +38,26 @@ const healthRoute = createRoute({
       description: "Worker health.",
     },
     400: { content: JsonErrorContent, description: "Invalid request." },
+    401: { content: JsonErrorContent, description: "Unauthorized." },
   },
   summary: "Health",
   tags: ["Health"],
 });
 
 app.use("*", requestLogger);
+app.use("*", async (c, next) => {
+  const authorized = await hasValidConfiguredAPIKey(
+    c.env,
+    c.req.header("authorization")
+  );
+  if (!authorized) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  return next();
+});
 
 app.openapi(healthRoute, (c) =>
   c.json({ ok: true, service: "timbervox" }, 200)
-);
-app.get(
-  "/docs",
-  apiReference({
-    spec: { url: "/openapi.json" },
-    theme: "default",
-  })
 );
 
 registerUploadRoutes(app);
@@ -64,15 +69,34 @@ registerRealtimeRoutes(app);
 registerUsageRoutes(app);
 registerAdminRoutes(app);
 
-app.doc("/openapi.json", {
+export const openApiDocumentConfig = {
+  components: {
+    securitySchemes: {
+      TimberVoxApiKey: {
+        bearerFormat: "TimberVox API key",
+        scheme: "bearer",
+        type: "http",
+      },
+    },
+  },
   info: {
     description:
       "TimberVox Cloud for upload, transcription jobs, realtime ASR, text generation, and usage.",
     title: "TimberVox Cloud",
     version: "0.1.0",
   },
-  openapi: "3.1.0",
-});
+  openapi: "3.1.0" as const,
+  security: [{ TimberVoxApiKey: [] }],
+};
+
+app.get(
+  "/docs",
+  apiReference(() => ({
+    spec: { content: app.getOpenAPI31Document(openApiDocumentConfig) },
+    theme: "default",
+  }))
+);
+app.doc31("/openapi.json", openApiDocumentConfig);
 
 app.notFound(() => jsonError("not found", 404));
 

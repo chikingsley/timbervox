@@ -64,6 +64,19 @@ const configuredAPIKey = (): string => {
 };
 
 describe("deployed Worker and Cloudflare D1", () => {
+  for (const path of ["/health", "/docs", "/openapi.json"]) {
+    it(`requires an API key for ${path}`, async () => {
+      const unauthenticated = await fetch(`${baseURL}${path}`);
+      expect(unauthenticated.status).toBe(401);
+      expect(await unauthenticated.json()).toEqual({ error: "unauthorized" });
+
+      const authenticated = await fetch(`${baseURL}${path}`, {
+        headers: { Authorization: `Bearer ${configuredAPIKey()}` },
+      });
+      expect(authenticated.status).toBe(200);
+    });
+  }
+
   it("rejects an unauthenticated model-catalog request", async () => {
     const response = await fetch(`${baseURL}/v1/models`);
     expect(response.status).toBe(401);

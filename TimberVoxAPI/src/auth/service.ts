@@ -45,6 +45,23 @@ const matchesConfiguredKey = async (
   return comparisons.includes(true);
 };
 
+const configuredBearerToken = async (
+  env: Env,
+  authorization: string | null | undefined
+): Promise<string | null> => {
+  const token = authorization?.match(bearerPattern)?.[1];
+  if (!token) {
+    return null;
+  }
+  const configured = configuredAPIKeys(env.TIMBERVOX_API_KEYS);
+  return (await matchesConfiguredKey(token, configured)) ? token : null;
+};
+
+export const hasValidConfiguredAPIKey = async (
+  env: Env,
+  authorization: string | null | undefined
+): Promise<boolean> => Boolean(await configuredBearerToken(env, authorization));
+
 const ensureStaticKeyIdentity = async (
   env: Env,
   credentialHash: string
@@ -94,12 +111,8 @@ export const authenticateCredential = async (
   env: Env,
   authorization: string | null | undefined
 ): Promise<AuthSession | null> => {
-  const token = authorization?.match(bearerPattern)?.[1];
+  const token = await configuredBearerToken(env, authorization);
   if (!token) {
-    return null;
-  }
-  const configured = configuredAPIKeys(env.TIMBERVOX_API_KEYS);
-  if (!(await matchesConfiguredKey(token, configured))) {
     return null;
   }
   return ensureStaticKeyIdentity(env, await sha256Hex(token));
