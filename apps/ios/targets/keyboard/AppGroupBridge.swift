@@ -33,7 +33,7 @@ enum BridgeKey: String, CaseIterable {
 }
 
 enum KeyboardBridge {
-  static let group = "group.com.chiejimofor.timbervox"
+  static let group = "group.studio.peacockery.timbervox"
   static let schemaVersion = 3
 
   private static var defaults: UserDefaults? {

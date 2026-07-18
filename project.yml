@@ -1,6 +1,6 @@
 name: TimberVox
 options:
-  bundleIdPrefix: com.chiejimofor
+  bundleIdPrefix: studio.peacockery
   deploymentTarget:
     macOS: "26.0"
   createIntermediateGroups: true
@@ -79,7 +79,7 @@ targets:
         PeacockeryVoiceAPIKey: "$(PEACOCKERY_VOICE_API_KEY)"
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.chiejimofor.timbervox
+        PRODUCT_BUNDLE_IDENTIFIER: studio.peacockery.timbervox
         PRODUCT_NAME: TimberVox
         MARKETING_VERSION: "1.0.0"
         CURRENT_PROJECT_VERSION: 87
@@ -106,7 +106,7 @@ targets:
       - target: TimberVox
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.chiejimofor.timbervox.tests
+        PRODUCT_BUNDLE_IDENTIFIER: studio.peacockery.timbervox.tests
         GENERATE_INFOPLIST_FILE: YES
 
   TimberVoxUITests:
@@ -118,7 +118,7 @@ targets:
       - target: TimberVox
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.chiejimofor.timbervox.ui-tests
+        PRODUCT_BUNDLE_IDENTIFIER: studio.peacockery.timbervox.ui-tests
         GENERATE_INFOPLIST_FILE: YES
         TEST_TARGET_NAME: TimberVox
 

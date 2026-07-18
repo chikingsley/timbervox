@@ -7,12 +7,12 @@ import Synchronization
 final class AggregateAudioRecorder: @unchecked Sendable {
   private let logger = TimberVoxLog.audio
   private let ioQueue = DispatchQueue(
-    label: "com.chiejimofor.timbervox.aggregate-audio-io",
+    label: "studio.peacockery.timbervox.aggregate-audio-io",
     qos: .userInitiated
   )
   private let healthWatchdog = AggregateAudioHealthWatchdog()
   private let processingQueue = DispatchQueue(
-    label: "com.chiejimofor.timbervox.aggregate-audio-processing",
+    label: "studio.peacockery.timbervox.aggregate-audio-processing",
     qos: .userInitiated
   )
 

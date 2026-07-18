@@ -1,6 +1,6 @@
 import { ExtensionStorage } from "@bacons/apple-targets";
 
-const APP_GROUP = "group.com.chiejimofor.timbervox";
+const APP_GROUP = "group.studio.peacockery.timbervox";
 const BRIDGE_SCHEMA_VERSION = 3;
 const storage = new ExtensionStorage(APP_GROUP);
 

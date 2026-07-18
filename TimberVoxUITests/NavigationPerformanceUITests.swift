@@ -14,12 +14,12 @@ final class NavigationPerformanceUITests: XCTestCase {
     app.activate()
 
     let navigationMetric = XCTOSSignpostMetric(
-      subsystem: "com.chiejimofor.timbervox",
+      subsystem: "studio.peacockery.timbervox",
       category: "navigation",
       name: "HomeToHistory"
     )
     let queryMetric = XCTOSSignpostMetric(
-      subsystem: "com.chiejimofor.timbervox",
+      subsystem: "studio.peacockery.timbervox",
       category: "navigation",
       name: "HistoryQuery"
     )

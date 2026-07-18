@@ -3,7 +3,7 @@ import AppIntents
 import Foundation
 
 enum TimberVoxNativeBridge {
-  static let appGroup = "group.com.chiejimofor.timbervox"
+  static let appGroup = "group.studio.peacockery.timbervox"
   static let schemaVersion = 3
 
   static var defaults: UserDefaults {

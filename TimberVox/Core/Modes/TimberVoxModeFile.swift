@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 
 extension UTType {
   static let timberVoxMode = UTType(
-    exportedAs: "com.chiejimofor.timbervox.mode",
+    exportedAs: "studio.peacockery.timbervox.mode",
     conformingTo: .json
   )
 }

@@ -9,7 +9,7 @@
     "userInterfaceStyle": "dark",
     "ios": {
       "icon": "./assets/images/timbervox-icon.png",
-      "bundleIdentifier": "com.chiejimofor.timbervox",
+      "bundleIdentifier": "studio.peacockery.timbervox",
       "buildNumber": "86",
       "appleTeamId": "XM69J99HWP",
       "supportsTablet": false,
@@ -21,7 +21,7 @@
       },
       "entitlements": {
         "com.apple.security.application-groups": [
-          "group.com.chiejimofor.timbervox"
+          "group.studio.peacockery.timbervox"
         ]
       }
     },
@@ -98,29 +98,29 @@
             "ios": {
               "appExtensions": [
                 {
-                  "bundleIdentifier": "com.chiejimofor.timbervox.keyboard",
+                  "bundleIdentifier": "studio.peacockery.timbervox.keyboard",
                   "targetName": "TimberVoxKeyboard",
                   "entitlements": {
                     "com.apple.security.application-groups": [
-                      "group.com.chiejimofor.timbervox"
+                      "group.studio.peacockery.timbervox"
                     ]
                   }
                 },
                 {
-                  "bundleIdentifier": "com.chiejimofor.timbervox.app-intents",
+                  "bundleIdentifier": "studio.peacockery.timbervox.app-intents",
                   "targetName": "TimberVoxAppIntents",
                   "entitlements": {
                     "com.apple.security.application-groups": [
-                      "group.com.chiejimofor.timbervox"
+                      "group.studio.peacockery.timbervox"
                     ]
                   }
                 },
                 {
-                  "bundleIdentifier": "com.chiejimofor.timbervox.recording-activity",
+                  "bundleIdentifier": "studio.peacockery.timbervox.recording-activity",
                   "targetName": "TimberVoxRecordingActivity",
                   "entitlements": {
                     "com.apple.security.application-groups": [
-                      "group.com.chiejimofor.timbervox"
+                      "group.studio.peacockery.timbervox"
                     ]
                   }
                 }

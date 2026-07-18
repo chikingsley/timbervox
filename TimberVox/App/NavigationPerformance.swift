@@ -3,7 +3,7 @@ import os
 
 /// Measures user-perceived navigation from the initiating action through populated content.
 enum NavigationPerformance {
-  static let subsystem = "com.chiejimofor.timbervox"
+  static let subsystem = "studio.peacockery.timbervox"
   static let category = "navigation"
   static let homeToHistoryName: StaticString = "HomeToHistory"
   static let historyQueryName: StaticString = "HistoryQuery"

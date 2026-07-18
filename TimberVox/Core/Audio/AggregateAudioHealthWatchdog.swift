@@ -2,7 +2,7 @@ import Foundation
 
 final class AggregateAudioHealthWatchdog: @unchecked Sendable {
   private let queue = DispatchQueue(
-    label: "com.chiejimofor.timbervox.aggregate-audio-health",
+    label: "studio.peacockery.timbervox.aggregate-audio-health",
     qos: .userInitiated
   )
   private var timer: DispatchSourceTimer?
