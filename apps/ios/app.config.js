@@ -1,31 +1,17 @@
-const { execFileSync } = require("node:child_process");
+const path = require("node:path");
 
-function localLabCredential() {
-  try {
-    return execFileSync(
-      "/usr/bin/security",
-      [
-        "find-generic-password",
-        "-a",
-        "lab-api-key",
-        "-s",
-        "peacockery-voice",
-        "-w",
-      ],
-      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
-    ).trim();
-  } catch {
-    return "";
-  }
+try {
+  process.loadEnvFile(path.resolve(__dirname, "../..", ".env"));
+} catch (error) {
+  if (error?.code !== "ENOENT") throw error;
 }
 
 function developmentCredential() {
   if (process.env.PEACOCKERY_VOICE_EMBED_DEV_CREDENTIAL !== "1") return "";
-  const credential =
-    process.env.PEACOCKERY_VOICE_API_KEY?.trim() || localLabCredential();
+  const credential = process.env.PEACOCKERY_VOICE_API_KEY?.trim();
   if (!credential) {
     throw new Error(
-      "PEACOCKERY_VOICE_EMBED_DEV_CREDENTIAL=1 requires PEACOCKERY_VOICE_API_KEY or the local peacockery-voice/lab-api-key Keychain item",
+      "PEACOCKERY_VOICE_EMBED_DEV_CREDENTIAL=1 requires PEACOCKERY_VOICE_API_KEY",
     );
   }
   return credential;

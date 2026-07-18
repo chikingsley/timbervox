@@ -39,7 +39,7 @@ All notable changes to the TimberVox rebuild are recorded here. The frozen pre-r
 - Added three-attempt bounded retry for transient signed-R2 PUT failures with short backoff. Exhaustion preserves the completed local recording and reports a retryable workflow failure instead of discarding the audio.
 - Reduced local-model route-switch peak memory by releasing the previous Core ML graph before loading its replacement. Songbird now reuses one loaded graph across languages in the same Latin/full asset variant and applies FluidAudio's explicit language prompt, including exact `ja-JP` and `zh-CN` mappings for the app's bare language codes.
 - Removed Wrangler-local D1 state, migrations, scripts, and tests. Wrangler development and integration verification now use only deployed Cloudflare resources.
-- Replaced Worker RevenueCat entitlement verification, installation identity, expiring credential provisioning, and Keychain refresh with a static `TIMBERVOX_API_KEYS` bearer boundary. Existing workload ownership/accounting remains keyed in deployed D1; obsolete license, installation, and entitlement schema was removed by migration.
+- Moved Worker authorization to environment-scoped D1 credentials while preserving workload ownership and accounting in D1.
 - Restored the local voice-model active-duration setting as a real runtime policy. Only the last requested batch or realtime graph remains resident; switching transport releases the prior graph, and Settings offers one, five, or fifteen idle minutes plus Keep loaded.
 
 ### Fixed

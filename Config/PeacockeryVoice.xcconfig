@@ -1,2 +1,1 @@
-PEACOCKERY_VOICE_API_KEY =
-#include? "keys/PeacockeryVoice.local.xcconfig"
+#include? "../.env"

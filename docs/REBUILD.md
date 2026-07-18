@@ -14,7 +14,7 @@ Earlier accepted runs covered the real temporary-GRDB persistence integration, u
 
 Peacockery Voice is deployed at `voice-lab.peacockery.studio` for internal development and `voice.peacockery.studio` for official-provider production traffic. Both hosts expose one authenticated `/v1` contract and currently share a Worker and Cloudflare bindings; the hostname selects environment-scoped credentials and provider policy. The service uses direct signed R2 audio uploads, keeps exact structured/text evidence in D1, supports realtime WebSockets through a Durable Object, and has passed lab and production text, batch, and realtime acceptance.
 
-RevenueCat is app-side purchase UI only and is not part of service authorization. Debug macOS builds read the environment-scoped lab credential from the local `peacockery-voice/lab-api-key` Keychain item; release builds may inject `PEACOCKERY_VOICE_API_KEY`/`PeacockeryVoiceAPIKey`. Distributed clients must use the managed short-lived client-token flow rather than embedding its trusted parent key.
+RevenueCat is app-side purchase UI only and is not part of service authorization. Debug macOS builds load the lab credential from the ignored repository-root `.env`; release builds may inject `PEACOCKERY_VOICE_API_KEY`/`PeacockeryVoiceAPIKey`. Distributed clients must use the managed short-lived client-token flow rather than embedding its trusted parent key.
 
 ## What remains before the cloud-dictation alpha
 

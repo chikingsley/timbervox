@@ -33,7 +33,7 @@ This requires a development build; Expo Go cannot contain the keyboard extension
 
 Complete setup, or continue into the app-only recorder. The Home microphone records and transcribes directly. A background session may then stay active while the keyboard's microphone button starts and stops realtime dictation. Users never enter an API key.
 
-Local development, internal preview, and the dedicated `testflight-dev` profile use Voice Lab and may embed a disposable credential when `PEACOCKERY_VOICE_EMBED_DEV_CREDENTIAL=1`. The key comes from `PEACOCKERY_VOICE_API_KEY` or, on this Mac, the `peacockery-voice/lab-api-key` Keychain item; EAS builds require it as an EAS environment secret. The `production` profile selects `voice.peacockery.studio` and explicitly omits this credential. Before public release, exchange trusted app/account proof for a revocable managed client token stored in iOS secure storage.
+Local development, internal preview, and the dedicated `testflight-dev` profile use Voice Lab and may embed a disposable credential when `PEACOCKERY_VOICE_EMBED_DEV_CREDENTIAL=1`. Local builds load `PEACOCKERY_VOICE_API_KEY` from the ignored repository-root `.env`; EAS builds require it as an EAS environment secret. The `production` profile selects `voice.peacockery.studio` and explicitly omits this credential. Before public release, exchange trusted app/account proof for a revocable managed client token kept only in memory and re-minted after launch or expiry.
 
 ## Personal and distribution modes
 

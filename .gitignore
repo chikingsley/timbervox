@@ -21,6 +21,5 @@ node_modules/
 .claude/
 
 # Private keys and personal documents (never commit)
-Config/keys/
 *.p8
 old-app/docs/agreementsFiles/
