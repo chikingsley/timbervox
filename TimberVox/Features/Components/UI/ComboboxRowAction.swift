@@ -6,17 +6,20 @@ import SwiftUI
 public struct SCComboboxRowAction<Label: View>: View {
   private let accessibilityLabel: String
   private let isDisabled: Bool
+  private let isSelected: Bool
   private let action: () -> Void
   private let label: Label
 
   public init(
     accessibilityLabel: String,
     isDisabled: Bool = false,
+    isSelected: Bool = false,
     action: @escaping () -> Void,
     @ViewBuilder label: () -> Label
   ) {
     self.accessibilityLabel = accessibilityLabel
     self.isDisabled = isDisabled
+    self.isSelected = isSelected
     self.action = action
     self.label = label()
   }
@@ -31,6 +34,7 @@ public struct SCComboboxRowAction<Label: View>: View {
       .accessibilityElement(children: .ignore)
       .accessibilityLabel(accessibilityLabel)
       .accessibilityAddTraits(.isButton)
+      .accessibilityAddTraits(isSelected ? .isSelected : [])
       .accessibilityAction {
         guard !isDisabled else { return }
         action()

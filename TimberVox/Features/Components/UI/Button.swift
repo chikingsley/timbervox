@@ -105,7 +105,7 @@ private struct SCButtonChrome: ViewModifier {
   private var foreground: Color {
     switch variant {
     case .default: theme.primaryForeground
-    case .destructive: .white
+    case .destructive: theme.destructiveForeground
     case .secondary: theme.secondaryForeground
     case .outline, .ghost:
       isHovered && isEnabled ? theme.accentForeground : theme.foreground

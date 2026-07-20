@@ -75,6 +75,16 @@ public struct SCAlertDialog<Trigger: View, DialogContent: View>: View {
         dialogContent
           .accessibilityAddTraits(.isModal)
           .transition(.scale(scale: 0.95).combined(with: .opacity))
+          .background {
+            // Upstream's alert dialog dismisses on Escape (while
+            // still refusing outside-click dismissal); a hidden
+            // cancel-action button is the focus-independent way to
+            // bind Escape for the whole key window.
+            Button("") { isPresented = false }
+              .keyboardShortcut(.cancelAction)
+              .opacity(0)
+              .accessibilityHidden(true)
+          }
       }
     }
     .environment(

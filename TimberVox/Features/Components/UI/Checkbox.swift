@@ -82,6 +82,9 @@ public struct SCCheckbox<Label: View, Indicator: View>: View {
         label
       }
       .accessibilityValue(Text(accessibilityValue))
+      // The web checkbox announces invalidity through aria-invalid; a
+      // hint is the native equivalent, matching SCSwitch.
+      .accessibilityHint(isInvalid ? "Invalid selection" : "")
     }
   }
 

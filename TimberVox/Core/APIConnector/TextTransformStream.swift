@@ -1,4 +1,5 @@
 import Foundation
+import PeacockeryVoiceClient
 
 struct TextTransformStreamResult: Equatable, Sendable {
   var events: [APIJSONValue]
@@ -10,18 +11,41 @@ extension TextTransformAPIClient {
     request: TextTransformRequest,
     onText: @Sendable (String) -> Void
   ) async throws -> TextTransformStreamResult {
-    let bytes = try await api.postEventStream(
-      path: "v1/text/stream",
-      body: request,
-      keyEncoding: .camelCase
+    let requestBody = try sdk.sdkValue(
+      request,
+      as: Components.Schemas.TextStreamRequest.self
+    )
+    let output = try await sdk.client().postV1TextStream(
+      .init(body: .json(requestBody))
     )
     var stream = TextTransformStreamAccumulator()
-
-    for try await line in bytes.lines {
-      guard line.hasPrefix("data:") else { continue }
-      let payload = String(line.dropFirst("data:".count))
-        .trimmingCharacters(in: .whitespaces)
-      guard !payload.isEmpty else { continue }
+    var pending = ""
+    switch output {
+    case .ok(let response):
+      for try await chunk in try response.body.textEventStream {
+        guard let text = String(bytes: chunk, encoding: .utf8) else {
+          throw stream.error(.invalidEvent("The event stream was not valid UTF-8."))
+        }
+        pending += text
+        while let newline = pending.firstIndex(of: "\n") {
+          let line = String(pending[..<newline])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+          pending.removeSubrange(...newline)
+          if let payload = eventPayload(from: line) {
+            try stream.consume(payload: payload, onText: onText)
+          }
+        }
+      }
+    case .badRequest:
+      throw APIConnectorError.httpStatus(400)
+    case .unauthorized:
+      throw APIConnectorError.httpStatus(401)
+    case .undocumented(let statusCode, _):
+      throw APIConnectorError.httpStatus(statusCode)
+    }
+    if let payload = eventPayload(
+      from: pending.trimmingCharacters(in: .whitespacesAndNewlines)
+    ) {
       try stream.consume(payload: payload, onText: onText)
     }
 
@@ -30,6 +54,13 @@ extension TextTransformAPIClient {
     }
     return TextTransformStreamResult(events: stream.events, outcome: outcome)
   }
+}
+
+private func eventPayload(from line: String) -> String? {
+  guard line.hasPrefix("data:") else { return nil }
+  let payload = String(line.dropFirst("data:".count))
+    .trimmingCharacters(in: .whitespaces)
+  return payload.isEmpty ? nil : payload
 }
 
 private struct TextTransformStreamAccumulator {

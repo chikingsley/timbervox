@@ -173,7 +173,7 @@ public struct SCComboboxCollection<
       .onHover { hovering in
         if hovering, !option.isDisabled { highlightedValue = option.value }
       }
-      .accessibilityAddTraits(isSelected ? .isSelected : [])
+      .accessibilityAddTraits(selectsOnRowTap && isSelected ? .isSelected : [])
   }
 
   private var filteredOptions: [SCComboboxOption<Value>] {

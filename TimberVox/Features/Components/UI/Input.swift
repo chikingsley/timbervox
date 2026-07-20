@@ -133,6 +133,9 @@ public struct SCInput<Value: InputConvertible, Trailing: View>: View {
         suppressesChrome: inputGroupControl.isGrouped
       )
     )
+    // The web input announces invalidity through aria-invalid; a hint is
+    // the native equivalent, matching SCSwitch.
+    .accessibilityHint(resolvedIsInvalid ? "Invalid entry" : "")
     .onTapGesture { isFocused = true }
     .animation(.easeOut(duration: 0.15), value: isFocused)
     .onChange(of: text) { _, newText in
@@ -274,7 +277,12 @@ struct SCInputChrome: ViewModifier {
         .padding(.horizontal, 12)
         .frame(height: size == .sm ? 32 : 40)
         .background(theme.background, in: shape)
-        .overlay(shape.strokeBorder(strokeColor, lineWidth: isFocused ? 1.5 : 1))
+        // The border is decorative: without this it hit-tests in front
+        // of the field's own controls and swallows their actions.
+        .overlay(
+          shape.strokeBorder(strokeColor, lineWidth: isFocused ? 1.5 : 1)
+            .allowsHitTesting(false)
+        )
         .contentShape(shape)
         .opacity(isEnabled ? 1 : 0.5)
     }

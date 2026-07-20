@@ -1,4 +1,5 @@
 import Foundation
+import PeacockeryVoiceClient
 
 /// Uploads source audio and creates a cloud batch transcription job.
 struct CloudBatchTranscriber: Sendable {
@@ -7,9 +8,11 @@ struct CloudBatchTranscriber: Sendable {
   )
 
   var api: APIConnector
+  var sdk: PeacockeryVoiceSDK
 
   init(baseURL: URL, session: URLSession = .shared) {
     api = APIConnector(baseURL: baseURL, session: session)
+    sdk = PeacockeryVoiceSDK(baseURL: baseURL)
   }
 
   func transcribe(
@@ -19,37 +22,58 @@ struct CloudBatchTranscriber: Sendable {
     diarize: Bool = false
   ) async throws -> TranscriptionArtifact {
     let sizeBytes = try fileSize(fileURL)
-    let reservation: CloudUpload = try await api.post(
-      path: "v1/uploads",
-      body: CreateUploadRequest(
-        filename: fileURL.lastPathComponent,
-        contentType: "audio/wav",
-        sizeBytes: sizeBytes
+    let client = try await sdk.client()
+    let reservationOutput = try await client.postV1Uploads(
+      .init(
+        body: .json(
+          .init(
+            contentType: "audio/wav",
+            filename: fileURL.lastPathComponent,
+            sizeBytes: sizeBytes
+          )
+        )
       )
     )
+    let reservation = try uploadReservation(from: reservationOutput)
     let completedParts = try await upload(fileURL, using: reservation.transfer)
-    let _: CloudUploadCompletion = try await api.post(
-      path: "v1/uploads/\(reservation.uploadId)/complete",
-      body: CompleteUploadRequest(parts: completedParts)
-    )
-
-    let job: CloudJobStatus = try await api.post(
-      path: "v1/transcriptions",
-      body: CreateTranscriptionRequest(
-        asrModel: model,
-        diarize: diarize,
-        inputKey: reservation.inputKey,
-        language: language,
-        sync: true
+    let completionParts = completedParts.map {
+      Components.Schemas.UploadCompletionRequest.PartsPayloadPayload(
+        etag: $0.etag,
+        partNumber: $0.partNumber
+      )
+    }
+    let completionOutput = try await client.postV1UploadsUploadIdComplete(
+      .init(
+        path: .init(uploadId: reservation.uploadId),
+        body: .json(.init(parts: completionParts))
       )
     )
+    try validateUploadCompletion(completionOutput)
+
+    let jobOutput = try await client.postV1Transcriptions(
+      .init(
+        body: .json(
+          .init(
+            asrModel: model,
+            diarize: diarize,
+            inputKey: reservation.inputKey,
+            language: language,
+            sync: true
+          )
+        )
+      )
+    )
+    let job = try transcriptionJob(from: jobOutput)
     if let transcript = try transcriptIfTerminal(job) {
       return transcript
     }
 
     let deadline = Date.now.addingTimeInterval(120)
     while Date.now < deadline {
-      let status: CloudJobStatus = try await api.get(path: "v1/jobs/\(job.jobId)")
+      let statusOutput = try await client.getV1JobsJobId(
+        .init(path: .init(jobId: job.jobId))
+      )
+      let status = try transcriptionJob(from: statusOutput)
       if let transcript = try transcriptIfTerminal(status) {
         return transcript
       }
@@ -152,12 +176,117 @@ struct CloudBatchTranscriber: Sendable {
     ].contains(urlError.code)
   }
 
-  private func fileSize(_ fileURL: URL) throws -> Int64 {
+  private func fileSize(_ fileURL: URL) throws -> Int {
     let values = try fileURL.resourceValues(forKeys: [.fileSizeKey])
     guard let size = values.fileSize, size > 0 else {
       throw TranscriptionRuntimeError.configuration("The recording file is empty.")
     }
-    return Int64(size)
+    return size
+  }
+
+  private func uploadReservation(
+    from output: Operations.PostV1Uploads.Output
+  ) throws -> CloudUpload {
+    switch output {
+    case .created(let response):
+      let reservation = try response.body.json
+      let transfer: CloudUploadTransfer
+      switch reservation.transfer {
+      case .case1(let single):
+        guard let url = URL(string: single.url) else {
+          throw APIConnectorError.invalidResponse
+        }
+        transfer = .single(
+          url: url,
+          headers: single.headers.additionalProperties
+        )
+      case .case2(let multipart):
+        let parts = try multipart.parts.map { part in
+          guard let url = URL(string: part.url) else {
+            throw APIConnectorError.invalidResponse
+          }
+          return CloudUploadPart(
+            headers: part.headers.additionalProperties,
+            partNumber: part.partNumber,
+            url: url
+          )
+        }
+        transfer = .multipart(
+          partSizeBytes: multipart.partSizeBytes,
+          parts: parts
+        )
+      }
+      return CloudUpload(
+        uploadId: reservation.uploadId,
+        inputKey: reservation.inputKey,
+        transfer: transfer
+      )
+    case .badRequest:
+      throw APIConnectorError.httpStatus(400)
+    case .unauthorized:
+      throw APIConnectorError.httpStatus(401)
+    case .unsupportedMediaType:
+      throw APIConnectorError.httpStatus(415)
+    case .undocumented(let statusCode, _):
+      throw APIConnectorError.httpStatus(statusCode)
+    }
+  }
+
+  private func validateUploadCompletion(
+    _ output: Operations.PostV1UploadsUploadIdComplete.Output
+  ) throws {
+    switch output {
+    case .ok:
+      return
+    case .badRequest:
+      throw APIConnectorError.httpStatus(400)
+    case .unauthorized:
+      throw APIConnectorError.httpStatus(401)
+    case .notFound:
+      throw APIConnectorError.httpStatus(404)
+    case .conflict:
+      throw APIConnectorError.httpStatus(409)
+    case .undocumented(let statusCode, _):
+      throw APIConnectorError.httpStatus(statusCode)
+    }
+  }
+
+  private func transcriptionJob(
+    from output: Operations.PostV1Transcriptions.Output
+  ) throws -> CloudJobStatus {
+    let job: Components.Schemas.JobView
+    switch output {
+    case .ok(let response):
+      job = try response.body.json
+    case .accepted(let response):
+      job = try response.body.json
+    case .badRequest:
+      throw APIConnectorError.httpStatus(400)
+    case .unauthorized:
+      throw APIConnectorError.httpStatus(401)
+    case .notFound:
+      throw APIConnectorError.httpStatus(404)
+    case .undocumented(let statusCode, _):
+      throw APIConnectorError.httpStatus(statusCode)
+    }
+    return try sdk.localValue(job, as: CloudJobStatus.self)
+  }
+
+  private func transcriptionJob(
+    from output: Operations.GetV1JobsJobId.Output
+  ) throws -> CloudJobStatus {
+    let job: Components.Schemas.JobView
+    switch output {
+    case .ok(let response):
+      job = try response.body.json
+    case .unauthorized:
+      throw APIConnectorError.httpStatus(401)
+    case .notFound:
+      throw APIConnectorError.httpStatus(404)
+    case .undocumented(let statusCode, _):
+      throw APIConnectorError.httpStatus(statusCode)
+    }
+    return try sdk.localValue(job, as: CloudJobStatus.self)
   }
 
   private func transcriptIfTerminal(_ status: CloudJobStatus) throws -> TranscriptionArtifact? {
@@ -175,27 +304,9 @@ struct CloudBatchTranscriber: Sendable {
   }
 }
 
-private struct CreateUploadRequest: Encodable {
-  var filename: String
-  var contentType: String
-  var sizeBytes: Int64
-}
-
-private struct CompleteUploadRequest: Encodable {
-  var parts: [CompletedUploadPart]
-}
-
-private struct CompletedUploadPart: Encodable {
+private struct CompletedUploadPart {
   var etag: String
   var partNumber: Int
-}
-
-private struct CreateTranscriptionRequest: Encodable {
-  var asrModel: String
-  var diarize: Bool
-  var inputKey: String
-  var language: String?
-  var sync: Bool
 }
 
 private struct CloudUpload: Decodable {
@@ -242,11 +353,6 @@ private struct CloudUploadPart: Decodable {
   var headers: [String: String]
   var partNumber: Int
   var url: URL
-}
-
-private struct CloudUploadCompletion: Decodable {
-  var inputKey: String
-  var sizeBytes: Int64
 }
 
 private struct CloudJobStatus: Decodable {

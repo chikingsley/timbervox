@@ -3,7 +3,6 @@ import SwiftUI
 
 @main
 struct TimberVoxApp: App {
-  @State private var billing = SubscriptionController.shared
   @State private var dictation: DictationController
   @State private var permissions: PermissionCoordinator
   private let indicator: RecordingIndicatorManager
@@ -31,7 +30,7 @@ struct TimberVoxApp: App {
             hasCompletedOnboarding = true
           }
         } else {
-          AppShellView(dictation: dictation, billing: billing, permissions: permissions)
+          AppShellView(dictation: dictation, permissions: permissions)
         }
       }
       .preferredColorScheme(
@@ -40,9 +39,6 @@ struct TimberVoxApp: App {
       .scTooltipProvider()
       .theme(.timberVox)
       .background(WindowChromeConfigurator())
-      .task {
-        await billing.refresh()
-      }
       .task {
         Task.detached(priority: .background) {
           DictationContextRetentionSweeper.sweep()

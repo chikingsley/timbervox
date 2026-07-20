@@ -56,6 +56,7 @@ struct ModeDetailForm: View {
       ) {
         ModePresetPicker(selection: bindings.optionalPreset(mode))
           .frame(width: ModeLayout.controlWidth)
+          .accessibilityIdentifier("mode.preset")
       }
       .zIndex(10)
 
@@ -90,6 +91,7 @@ struct ModeDetailForm: View {
           options: languageOptions
         )
         .frame(width: ModeLayout.controlWidth)
+        .accessibilityIdentifier("mode.language")
       }
 
       AppSettingsRow(
@@ -102,6 +104,7 @@ struct ModeDetailForm: View {
           models: transcriptionCatalog.models
         )
         .frame(width: ModeLayout.controlWidth)
+        .accessibilityIdentifier("mode.voice-model")
       }
       .zIndex(10)
 
@@ -181,6 +184,7 @@ struct ModeDetailForm: View {
           }
         )
         .frame(width: ModeLayout.controlWidth)
+        .accessibilityIdentifier("mode.playback-policy")
       }
 
       AppSettingsRow(

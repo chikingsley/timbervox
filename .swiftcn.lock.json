@@ -3,9 +3,9 @@
     "alert" : {
       "files" : [
         {
-          "installedHash" : "9f10dafd689e942573ac58d320e4785ec3beea8d72c8618def6be88cf0cd674c",
+          "installedHash" : "5356568c8ddfcbcee2659c0b34ee7dad829c6416603958feee7e025ded0b9f64",
           "source" : "Sources/Swiftcn/Components/Alert.swift",
-          "sourceHash" : "9f10dafd689e942573ac58d320e4785ec3beea8d72c8618def6be88cf0cd674c",
+          "sourceHash" : "5356568c8ddfcbcee2659c0b34ee7dad829c6416603958feee7e025ded0b9f64",
           "target" : "Alert.swift"
         }
       ]
@@ -13,9 +13,9 @@
     "alert-dialog" : {
       "files" : [
         {
-          "installedHash" : "3574e7781a1c0490fcc7242e395a4bb058a8755f0069c7e15b75dc8a179e196c",
+          "installedHash" : "65461eae63a6f8ae220b4a9b09c1889fa581be7b38fe31f6755ee6379ac2dc1d",
           "source" : "Sources/Swiftcn/Components/AlertDialog.swift",
-          "sourceHash" : "3574e7781a1c0490fcc7242e395a4bb058a8755f0069c7e15b75dc8a179e196c",
+          "sourceHash" : "65461eae63a6f8ae220b4a9b09c1889fa581be7b38fe31f6755ee6379ac2dc1d",
           "target" : "AlertDialog.swift"
         },
         {
@@ -39,9 +39,9 @@
     "badge" : {
       "files" : [
         {
-          "installedHash" : "1ba86b45e559f718bad00b2c511c809820c1690a1189891d07d049614b8b53a0",
+          "installedHash" : "36d101917aaefed59f037de5c35ef3f167dbb3a64e0a872ff3677f8b9a6b16d9",
           "source" : "Sources/Swiftcn/Components/Badge.swift",
-          "sourceHash" : "1ba86b45e559f718bad00b2c511c809820c1690a1189891d07d049614b8b53a0",
+          "sourceHash" : "36d101917aaefed59f037de5c35ef3f167dbb3a64e0a872ff3677f8b9a6b16d9",
           "target" : "Badge.swift"
         }
       ]
@@ -59,9 +59,9 @@
     "button" : {
       "files" : [
         {
-          "installedHash" : "5ac92435288c6e6b8ede5a114a892354975e0c8ae6de70550efd9dcfe39bf759",
+          "installedHash" : "216c81d585cdeb898ec18de9294e650da33d709edc628bd0f94414e4b354cd9b",
           "source" : "Sources/Swiftcn/Components/Button.swift",
-          "sourceHash" : "5ac92435288c6e6b8ede5a114a892354975e0c8ae6de70550efd9dcfe39bf759",
+          "sourceHash" : "216c81d585cdeb898ec18de9294e650da33d709edc628bd0f94414e4b354cd9b",
           "target" : "Button.swift"
         }
       ]
@@ -79,9 +79,9 @@
     "checkbox" : {
       "files" : [
         {
-          "installedHash" : "3db77132146d84ae30f4fcfd7da2b8fe52576cd7de35321a0b92d9b6e26007ba",
+          "installedHash" : "9dc1cb5e61f689c667936a8988dec3245b91ed7c18a6934e14c8ae5f2c99b064",
           "source" : "Sources/Swiftcn/Components/Checkbox.swift",
-          "sourceHash" : "3db77132146d84ae30f4fcfd7da2b8fe52576cd7de35321a0b92d9b6e26007ba",
+          "sourceHash" : "9dc1cb5e61f689c667936a8988dec3245b91ed7c18a6934e14c8ae5f2c99b064",
           "target" : "Checkbox.swift"
         }
       ]
@@ -215,9 +215,9 @@
     "input" : {
       "files" : [
         {
-          "installedHash" : "19a322b2af42893cc457bf50793dcf42f3fd5635948e88ac9035465f7faf91b1",
+          "installedHash" : "61117cb697d8c04d41db534a34a09375e240c8fffa61a2c692e489d3e90594f8",
           "source" : "Sources/Swiftcn/Components/Input.swift",
-          "sourceHash" : "19a322b2af42893cc457bf50793dcf42f3fd5635948e88ac9035465f7faf91b1",
+          "sourceHash" : "61117cb697d8c04d41db534a34a09375e240c8fffa61a2c692e489d3e90594f8",
           "target" : "Input.swift"
         },
         {
@@ -263,9 +263,9 @@
     "kbd" : {
       "files" : [
         {
-          "installedHash" : "3c2d6ed3bce568e52f590378ad6b429ee79b08be52bcf2227a950214f05fe40e",
+          "installedHash" : "bd55df4bcec847fa8c1f0ba4805ace444156d8e59a5728226d26c98a04a5e656",
           "source" : "Sources/Swiftcn/Components/Kbd.swift",
-          "sourceHash" : "3c2d6ed3bce568e52f590378ad6b429ee79b08be52bcf2227a950214f05fe40e",
+          "sourceHash" : "bd55df4bcec847fa8c1f0ba4805ace444156d8e59a5728226d26c98a04a5e656",
           "target" : "Kbd.swift"
         }
       ]
@@ -359,9 +359,9 @@
     "separator" : {
       "files" : [
         {
-          "installedHash" : "81636f882f1f5911bd2c211386eed55a67e70cab21bbc423f8dd2cc58d57e731",
+          "installedHash" : "644098e025036d02a70da22db8fac7eba3350adabd50198a2e6a6d0412cca1ba",
           "source" : "Sources/Swiftcn/Components/Separator.swift",
-          "sourceHash" : "81636f882f1f5911bd2c211386eed55a67e70cab21bbc423f8dd2cc58d57e731",
+          "sourceHash" : "644098e025036d02a70da22db8fac7eba3350adabd50198a2e6a6d0412cca1ba",
           "target" : "Separator.swift"
         }
       ]
@@ -461,9 +461,9 @@
     "textarea" : {
       "files" : [
         {
-          "installedHash" : "d67d03f4cb637f48ad0ba18595b6c294d9515c1572b43bd6a51db6484f03f19c",
+          "installedHash" : "0478d9371041561f4e7081e891c1e11fce1d04eb8bf64f2560a986089fe9fc92",
           "source" : "Sources/Swiftcn/Components/Textarea.swift",
-          "sourceHash" : "d67d03f4cb637f48ad0ba18595b6c294d9515c1572b43bd6a51db6484f03f19c",
+          "sourceHash" : "0478d9371041561f4e7081e891c1e11fce1d04eb8bf64f2560a986089fe9fc92",
           "target" : "Textarea.swift"
         }
       ]
@@ -483,9 +483,9 @@
           "target" : "Palette.swift"
         },
         {
-          "installedHash" : "c062aa27f3bfd609892b36385c98747e353f27f6434eef0592921f5f73df3d01",
+          "installedHash" : "9a5d91e1a34815219815f9ba41bb693b7e67e8954a9b5bdfbf93c3f2b5efa889",
           "source" : "Sources/Swiftcn/Theme/Theme.swift",
-          "sourceHash" : "c062aa27f3bfd609892b36385c98747e353f27f6434eef0592921f5f73df3d01",
+          "sourceHash" : "9a5d91e1a34815219815f9ba41bb693b7e67e8954a9b5bdfbf93c3f2b5efa889",
           "target" : "Theme.swift"
         }
       ]

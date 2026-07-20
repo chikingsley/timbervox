@@ -28,9 +28,11 @@ public struct Theme: Sendable {
   public var mutedForeground: Color
   public var accent: Color
   public var accentForeground: Color
-  /// Destructive surfaces render fixed white content, mirroring upstream,
-  /// which dropped `--destructive-foreground` in Tailwind v4 for `text-white`.
   public var destructive: Color
+  /// Content color on destructive fills. Upstream hardcodes `text-white`,
+  /// which measures 2.89:1 on the dark destructive (red-400); this token
+  /// exists so fills stay WCAG AA in both modes.
+  public var destructiveForeground: Color
 
   // MARK: Chrome
   public var border: Color
@@ -75,6 +77,7 @@ public struct Theme: Sendable {
     accent: Color,
     accentForeground: Color,
     destructive: Color,
+    destructiveForeground: Color,
     border: Color,
     input: Color,
     ring: Color,
@@ -109,6 +112,7 @@ public struct Theme: Sendable {
     self.accent = accent
     self.accentForeground = accentForeground
     self.destructive = destructive
+    self.destructiveForeground = destructiveForeground
     self.border = border
     self.input = input
     self.ring = ring
@@ -148,13 +152,25 @@ private struct SCDefaultPresetColors {
   let secondary: Color = .adaptive(light: .zinc100, dark: .zinc800)
   let secondaryForeground: Color = .adaptive(light: .zinc900, dark: .zinc50)
   let muted: Color = .adaptive(light: .zinc100, dark: .zinc800)
-  let mutedForeground: Color = .adaptive(light: .zinc500, dark: .zinc400)
+  // Intentional deviation from upstream zinc (light: zinc-500): zinc-500 on
+  // the muted surface measures 4.39:1, under WCAG AA 4.5:1. zinc-600 keeps
+  // muted text at 6.08:1 or better on every light surface.
+  let mutedForeground: Color = .adaptive(light: .zinc600, dark: .zinc400)
   let accent: Color = .adaptive(light: .zinc100, dark: .zinc800)
   let accentForeground: Color = .adaptive(light: .zinc900, dark: .zinc50)
+  // Upstream parity: red-600 light / red-400 dark, so destructive-as-text
+  // stays readable on dark surfaces (red-400 on zinc-950 = 6.55:1).
   let destructive: Color = .adaptive(light: .red600, dark: .red400)
+  // Intentional deviation from upstream's `text-white` fill content: white
+  // on red-400 measures 2.89:1; black measures 7.28:1. Fills stay WCAG AA
+  // in both modes (white on red-600 = 4.77:1).
+  let destructiveForeground: Color = .adaptive(light: .white, dark: .black)
   let border: Color = .adaptive(light: .zinc200, dark: .white.opacity(0.10))
   let input: Color = .adaptive(light: .zinc200, dark: .white.opacity(0.15))
-  let ring: Color = .adaptive(light: .zinc400, dark: .zinc500)
+  // Intentional deviation from upstream zinc (light: zinc-400): a zinc-400
+  // focus ring on white measures 2.62:1, under the 3:1 non-text minimum.
+  // zinc-500 measures 4.83:1 and matches upstream's own dark ring.
+  let ring: Color = .zinc500
   let chart1: Color = .zinc300
   let chart2: Color = .zinc500
   let chart3: Color = .zinc600
@@ -167,7 +183,7 @@ private struct SCDefaultPresetColors {
   let sidebarAccent: Color = .adaptive(light: .zinc100, dark: .zinc800)
   let sidebarAccentForeground: Color = .adaptive(light: .zinc900, dark: .zinc50)
   let sidebarBorder: Color = .adaptive(light: .zinc200, dark: .white.opacity(0.10))
-  let sidebarRing: Color = .adaptive(light: .zinc400, dark: .zinc500)
+  let sidebarRing: Color = .zinc500
 }
 
 extension Theme {
@@ -197,6 +213,7 @@ extension Theme {
       accent: colors.accent,
       accentForeground: colors.accentForeground,
       destructive: colors.destructive,
+      destructiveForeground: colors.destructiveForeground,
       border: colors.border,
       input: colors.input,
       ring: colors.ring,

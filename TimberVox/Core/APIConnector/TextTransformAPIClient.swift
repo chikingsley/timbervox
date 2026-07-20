@@ -1,4 +1,5 @@
 import Foundation
+import PeacockeryVoiceClient
 
 struct TextTransformMessage: Codable, Equatable, Sendable {
   enum Role: String, Codable, Sendable {
@@ -144,15 +145,28 @@ struct TextTransformRequest: Codable, Equatable, Sendable {
 struct TextTransformAPIClient: Sendable {
   static let current = TextTransformAPIClient(baseURL: APIConnector.defaultBaseURL)
 
-  var api: APIConnector
+  var sdk: PeacockeryVoiceSDK
 
-  init(baseURL: URL, session: URLSession = .shared) {
-    api = APIConnector(baseURL: baseURL, session: session)
+  init(baseURL: URL) {
+    sdk = PeacockeryVoiceSDK(baseURL: baseURL)
   }
 
   /// One-shot v1/text call. The app streams via `streamTransform`; this stays
   /// as the live-acceptance probe for the deployed one-shot endpoint.
   func transform(request: TextTransformRequest) async throws -> TextTransformOutcome {
-    try await api.post(path: "v1/text", body: request, keyEncoding: .camelCase)
+    let body = try sdk.sdkValue(request, as: Components.Schemas.TextRequest.self)
+    let output = try await sdk.client().postV1Text(.init(body: .json(body)))
+    let payload: Components.Schemas.TextResponse
+    switch output {
+    case .ok(let response):
+      payload = try response.body.json
+    case .badRequest:
+      throw APIConnectorError.httpStatus(400)
+    case .unauthorized:
+      throw APIConnectorError.httpStatus(401)
+    case .undocumented(let statusCode, _):
+      throw APIConnectorError.httpStatus(statusCode)
+    }
+    return try sdk.localValue(payload, as: TextTransformOutcome.self)
   }
 }

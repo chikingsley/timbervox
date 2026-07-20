@@ -14,18 +14,18 @@ Earlier accepted runs covered the real temporary-GRDB persistence integration, u
 
 Peacockery Voice is deployed at `voice-lab.peacockery.studio` for internal development and `voice.peacockery.studio` for official-provider production traffic. Both hosts expose one authenticated `/v1` contract and currently share a Worker and Cloudflare bindings; the hostname selects environment-scoped credentials and provider policy. The service uses direct signed R2 audio uploads, keeps exact structured/text evidence in D1, supports realtime WebSockets through a Durable Object, and has passed lab and production text, batch, and realtime acceptance.
 
-RevenueCat is app-side purchase UI only and is not part of service authorization. Debug macOS builds load the lab credential from the ignored repository-root `.env`; release builds may inject `PEACOCKERY_VOICE_API_KEY`/`PeacockeryVoiceAPIKey`. Distributed clients must use the managed short-lived client-token flow rather than embedding its trusted parent key.
+RevenueCat is app-side purchase UI only and is not part of service authorization. Debug macOS builds may use an explicitly supplied lab credential from the process environment. Distributed macOS 26 releases use the canonical Peacockery Voice device-bound credential flow: a per-install Secure Enclave P-256 key, TestFlight or App Store receipt registration, a short-lived `pvc_` token bound to that key, and a fresh DPoP proof for HTTP and realtime authorization. App Attest is a separate registration proof for supported Apple platforms and OS versions; it is not the macOS 26 bootstrap and its key is not reused as the DPoP signer. TimberVox consumes the shared Swift middleware from Peacockery Voice and does not embed the trusted parent credential or maintain a repo-local protocol fork.
 
 ## What remains before the cloud-dictation alpha
 
 The next work is verification and one contained History cleanup, not another general rewrite.
 
 1. Make aggregate capture bounded and explicitly degradable, then accept device/permission/network lifecycle failures.
-2. Verify global toggle/stop/cancel, paste into TextEdit and a browser/editor with the TimberVox window closed, and clipboard restoration behavior.
-3. Accept application/window, selected text, clipboard boundaries, file/image metadata, and screen OCR in controlled macOS apps.
-4. Persist the exact context snapshot and transform request/response metadata with each run, then verify History across quit/relaunch, search, playback, and rerun lineage.
-5. Reconcile the accepted external UI mock-up with production one surface at a time, connected to real runtime state and verified in empty/loading/error/populated states through the launched app.
-6. Repair RevenueCat Test Store products/packages and run purchase, cancellation, failure, entitlement-display, and restore acceptance as a separate app billing lane.
+1. Verify global toggle/stop/cancel, paste into TextEdit and a browser/editor with the TimberVox window closed, and clipboard restoration behavior.
+1. Accept application/window, selected text, clipboard boundaries, file/image metadata, and screen OCR in controlled macOS apps.
+1. Persist the exact context snapshot and transform request/response metadata with each run, then verify History across quit/relaunch, search, playback, and rerun lineage.
+1. Reconcile the accepted external UI mock-up with production one surface at a time, connected to real runtime state and verified in empty/loading/error/populated states through the launched app.
+1. Keep unreleased purchase controls out of the production Settings surface. Repair RevenueCat Test Store products/packages and run purchase, cancellation, failure, entitlement-display, and restore acceptance as a separate app billing lane before exposing them again.
 
 ## Product paths
 
@@ -39,7 +39,7 @@ A meeting is an explicit app workflow, not a third ASR transport. It composes re
 
 ## Repository layout
 
-```
+```text
 TimberVox/       Mac application
 TimberVoxTests/  Mac contract and persistence tests
 old-app/         frozen reference implementation
@@ -49,18 +49,14 @@ project.yml      XcodeGen source of truth
 
 Inside the Mac target:
 
-```
+```text
 TimberVox/
   App/       application entry points and shell
   Features/  visible product surfaces and their UI controllers
   Core/      shared workflows, domain models, storage, clients, and macOS services
 ```
 
-Stateful types live with the domain they own. `Core/APIConnector` owns TimberVox
-service connectivity, `Core/Delivery` owns clipboard and automatic-paste delivery,
-`Core/Transcription/FluidAudio/ModelManagement` owns FluidAudio package downloads,
-verification, progress, shared-asset deletion, and model-retention preferences, and
-`Core/Database` owns durable History rows. There is no global Stores folder.
+Stateful types live with the domain they own. `Core/APIConnector` owns TimberVox service connectivity, `Core/Delivery` owns clipboard and automatic-paste delivery, `Core/Transcription/FluidAudio/ModelManagement` owns FluidAudio package downloads, verification, progress, shared-asset deletion, and model-retention preferences, and `Core/Database` owns durable History rows. There is no global Stores folder.
 
 A folder is created when real files land, never as a placeholder. A sidebar tab exists only when its visible behavior and runtime path work.
 

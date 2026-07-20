@@ -191,14 +191,19 @@ actor CloudRealtimeTranscriptionClient {
       "v1/realtime/sessions/\(sessionID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? sessionID)"
     let url = baseURL.appending(path: path)
     var request = URLRequest(url: url)
-    let credential = try await authorization.credential()
-    request.setValue("Bearer \(credential)", forHTTPHeaderField: "Authorization")
 
     var lastError: Error?
     for attempt in 0..<3 {
       do {
+        request = try await authorization.authorize(request)
         let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+        guard let http = response as? HTTPURLResponse else {
+          throw URLError(.badServerResponse)
+        }
+        if http.statusCode == 401, await authorization.acceptNonce(from: http) {
+          throw URLError(.userAuthenticationRequired)
+        }
+        guard (200..<300).contains(http.statusCode) else {
           throw URLError(.badServerResponse)
         }
         return try RealtimeRecoveryResult.event(from: data)
@@ -244,10 +249,9 @@ actor CloudRealtimeTranscriptionClient {
       throw CloudRealtimeClientError.invalidBaseURL
     }
     var request = URLRequest(url: url)
-    let credential = try await authorization.credential()
-    request.setValue(
-      "Bearer \(credential)",
-      forHTTPHeaderField: "Authorization"
+    request = try await authorization.authorize(
+      request,
+      withFreshNonce: true
     )
     return request
   }

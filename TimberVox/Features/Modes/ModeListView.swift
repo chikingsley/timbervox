@@ -127,6 +127,7 @@ private struct ModeListRow: View {
       .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
     .buttonStyle(.plain)
+    .accessibilityIdentifier(isActive ? "mode.list.active" : "mode.list.\(mode.id)")
     .onHover { isHovered = $0 }
   }
 }

@@ -100,7 +100,7 @@ struct HomePane: View {
         activeTab = .settings
       }
 
-      HomeActionTile(title: "Account & billing", icon: "person.crop.circle") {
+      HomeActionTile(title: "Access & permissions", icon: "checkmark.shield") {
         activeTab = .settings
       }
     }

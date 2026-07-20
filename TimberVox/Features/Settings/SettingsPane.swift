@@ -26,7 +26,6 @@ enum AppearanceChoice: String, CaseIterable, Identifiable {
 
 struct SettingsPane: View {
   let dictation: DictationController
-  let billing: SubscriptionController
   let permissions: PermissionCoordinator
   @AppStorage("appearance") private var appearanceRaw = AppearanceChoice.automatic.rawValue
   @AppStorage("indicatorStyle") private var indicatorStyleRaw = IndicatorStyle.defaultValue.rawValue
@@ -56,7 +55,6 @@ struct SettingsPane: View {
         localModelsCard
         historyCard
         applicationCard
-        SettingsPlansCard(billing: billing)
         SettingsAccessGrid(permissions: permissions)
       }
       .appContentColumn(topInset: AppSpacing.lg, bottomInset: AppSpacing.xl)

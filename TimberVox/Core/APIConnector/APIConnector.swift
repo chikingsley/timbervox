@@ -33,11 +33,26 @@ struct APIConnector: Sendable {
   static let productionBaseURL = URL(string: "https://voice.peacockery.studio")!
 
   static var defaultBaseURL: URL {
-    #if DEBUG
+    let configuredEnvironment =
+      Bundle.main.object(forInfoDictionaryKey: "PeacockeryVoiceEnvironment") as? String
+    do {
+      return try baseURL(environment: configuredEnvironment)
+    } catch {
+      preconditionFailure(error.localizedDescription)
+    }
+  }
+
+  static func baseURL(environment: String?) throws -> URL {
+    switch environment?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+    case "lab":
       labBaseURL
-    #else
+    case "production":
       productionBaseURL
-    #endif
+    default:
+      throw APIConnectorError.configuration(
+        "PeacockeryVoiceEnvironment must be set to lab or production."
+      )
+    }
   }
 
   var authorization: APIConnectorAuthorization = .shared
@@ -75,10 +90,21 @@ struct APIConnector: Sendable {
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
     request.httpBody = try APIConnectorCoders.encode(body, keyEncoding: keyEncoding)
-    let prepared = try await prepare(request, authorized: true)
-    let (bytes, response) = try await session.bytes(for: prepared)
-    try validate(response)
-    return bytes
+    let first = try await session.bytes(
+      for: try await prepare(request, authorized: true)
+    )
+    if let http = first.1 as? HTTPURLResponse,
+      http.statusCode == 401,
+      await authorization.acceptNonce(from: http)
+    {
+      let retry = try await session.bytes(
+        for: try await prepare(request, authorized: true)
+      )
+      try validate(retry.1)
+      return retry.0
+    }
+    try validate(first.1)
+    return first.0
   }
 
   func upload(
@@ -111,10 +137,22 @@ struct APIConnector: Sendable {
     _ request: URLRequest,
     authorized: Bool
   ) async throws -> Response {
-    let prepared = try await prepare(request, authorized: authorized)
-    let (data, response) = try await session.data(for: prepared)
-    try validate(response)
-    return try APIConnectorCoders.decode(Response.self, from: data)
+    let first = try await session.data(
+      for: try await prepare(request, authorized: authorized)
+    )
+    if authorized,
+      let http = first.1 as? HTTPURLResponse,
+      http.statusCode == 401,
+      await authorization.acceptNonce(from: http)
+    {
+      let retry = try await session.data(
+        for: try await prepare(request, authorized: true)
+      )
+      try validate(retry.1)
+      return try APIConnectorCoders.decode(Response.self, from: retry.0)
+    }
+    try validate(first.1)
+    return try APIConnectorCoders.decode(Response.self, from: first.0)
   }
 
   private func prepare(
@@ -122,13 +160,7 @@ struct APIConnector: Sendable {
     authorized: Bool
   ) async throws -> URLRequest {
     guard authorized else { return request }
-    var prepared = request
-    let credential = try await authorization.credential()
-    prepared.setValue(
-      "Bearer \(credential)",
-      forHTTPHeaderField: "Authorization"
-    )
-    return prepared
+    return try await authorization.authorize(request)
   }
 
   private func makeRequest(path: String) -> URLRequest {

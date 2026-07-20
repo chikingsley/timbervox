@@ -1,33 +1,95 @@
 import Foundation
+import PeacockeryVoiceClient
 
 actor APIConnectorAuthorization {
-  static let shared = APIConnectorAuthorization(apiKey: configuredAPIKey())
+  #if DEBUG
+    static let shared = APIConnectorAuthorization(apiKey: configuredAPIKey())
+  #else
+    static let shared = APIConnectorAuthorization(
+      credentialManager: PeacockeryVoiceAppStoreCredentialManager(
+        appBundleID: "studio.peacockery.timbervox",
+        environment: .production,
+        signer: PeacockeryVoiceSecureEnclaveSigner(
+          applicationTag: "studio.peacockery.timbervox.voice-dpop"
+        )
+      )
+    )
+  #endif
 
-  private let apiKey: String?
-
-  init(apiKey: String?) {
-    self.apiKey = apiKey
+  private enum Backend: Sendable {
+    case bearer(String?)
+    case dpop(PeacockeryVoiceAppStoreCredentialManager)
   }
 
-  func credential() throws -> String {
-    guard let apiKey, !apiKey.isEmpty else {
-      throw APIConnectorError.configuration(
-        "This build does not have a Peacockery Voice credential."
+  private let backend: Backend
+
+  init(apiKey: String?) {
+    backend = .bearer(apiKey)
+  }
+
+  init(credentialManager: PeacockeryVoiceAppStoreCredentialManager) {
+    backend = .dpop(credentialManager)
+  }
+
+  func authorize(
+    _ request: URLRequest,
+    withFreshNonce: Bool = false
+  ) async throws -> URLRequest {
+    switch backend {
+    case .bearer(let apiKey):
+      guard let apiKey, !apiKey.isEmpty else {
+        throw APIConnectorError.configuration(
+          "Set PEACOCKERY_VOICE_API_KEY explicitly for this Debug build."
+        )
+      }
+      var authorized = request
+      authorized.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+      return authorized
+    case .dpop(let credentialManager):
+      return try await credentialManager.authorize(
+        request,
+        withFreshNonce: withFreshNonce
       )
     }
-    return apiKey
+  }
+
+  func acceptNonce(from response: HTTPURLResponse) async -> Bool {
+    switch backend {
+    case .bearer:
+      false
+    case .dpop(let credentialManager):
+      await credentialManager.acceptNonce(from: response)
+    }
+  }
+
+  func voiceClient(
+    environment: PeacockeryVoiceEnvironment
+  ) throws -> PeacockeryVoiceClient.Client {
+    switch backend {
+    case .bearer(let apiKey):
+      guard let apiKey, !apiKey.isEmpty else {
+        throw APIConnectorError.configuration(
+          "Set PEACOCKERY_VOICE_API_KEY explicitly for this Debug build."
+        )
+      }
+      return PeacockeryVoiceClients.make(environment: environment, apiKey: apiKey)
+    case .dpop(let credentialManager):
+      return PeacockeryVoiceClients.make(
+        environment: environment,
+        credentialManager: credentialManager
+      )
+    }
   }
 
   private static func configuredAPIKey() -> String? {
-    let environment = ProcessInfo.processInfo.environment
-    let environmentValue = environment["PEACOCKERY_VOICE_API_KEY"]
-    let bundledValue =
-      Bundle.main.object(forInfoDictionaryKey: "PeacockeryVoiceAPIKey") as? String
-    return [environmentValue, bundledValue]
-      .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-      .first {
-        !$0.isEmpty
-          && !$0.contains("$(PEACOCKERY_VOICE_API_KEY)")
-      }
+    ProcessInfo.processInfo.environment["PEACOCKERY_VOICE_API_KEY"]?
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+      .nilIfEmpty
+  }
+}
+
+private extension String {
+  var nilIfEmpty: String? {
+    isEmpty ? nil : self
   }
 }

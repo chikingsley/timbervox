@@ -125,7 +125,10 @@ private struct SCKbdAccessibilityLabel: ViewModifier {
   @ViewBuilder
   func body(content: Content) -> some View {
     if let label {
-      content.accessibilityLabel(Text(label))
+      // Keycaps read as static text. An explicitly labeled group is
+      // represented as text so it carries a valid role even when its
+      // keys are icon-only and combine into a role-less element.
+      content.accessibilityRepresentation { Text(label) }
     } else {
       content
     }

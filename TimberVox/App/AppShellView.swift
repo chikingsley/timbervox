@@ -29,7 +29,6 @@ enum ActiveTab: String, CaseIterable, Identifiable {
 
 struct AppShellView: View {
   let dictation: DictationController
-  let billing: SubscriptionController
   let permissions: PermissionCoordinator
   @State private var activeTab: ActiveTab? = .home
   @State private var selectedHistoryID: Int64?
@@ -83,7 +82,7 @@ struct AppShellView: View {
     case .history:
       HistoryPane(requestedSelectionID: $selectedHistoryID)
     case .settings:
-      SettingsPane(dictation: dictation, billing: billing, permissions: permissions)
+      SettingsPane(dictation: dictation, permissions: permissions)
     case .modes:
       ModesPane()
     }

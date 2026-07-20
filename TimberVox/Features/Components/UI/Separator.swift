@@ -108,11 +108,19 @@ private struct SCSeparatorAccessibilityModifier: ViewModifier {
     if isDecorative {
       content.accessibilityHidden(true)
     } else if let label {
+      // Bare rules (default label "Separator") and string-labeled
+      // separators combine into role-less elements that fail
+      // accessibility audits (WCAG 4.1.2), and traits do not map to
+      // macOS roles; representing them as real text supplies a valid
+      // role while preserving the spoken label and orientation value.
       content
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(label)
-        .accessibilityValue(orientation)
+        .accessibilityRepresentation {
+          Text(label)
+            .accessibilityValue(orientation)
+        }
     } else {
+      // ViewBuilder-labeled separators keep their visible content's
+      // own semantics; the combined text children carry a valid role.
       content
         .accessibilityElement(children: .combine)
         .accessibilityValue(orientation)

@@ -28,6 +28,9 @@ final class TextTransformProviderLiveAcceptanceTests: XCTestCase {
       try APIConnectorCoders.encode(request).write(
         to: artifacts.appendingPathComponent("\(preset.rawValue)-request.json")
       )
+      try APIConnectorCoders.encode(outcome).write(
+        to: artifacts.appendingPathComponent("\(preset.rawValue)-outcome.json")
+      )
       try text.write(
         to: artifacts.appendingPathComponent("\(preset.rawValue)-result.txt"),
         atomically: true,

@@ -1,13 +1,13 @@
 default: build
 
-xcode_local_flags := "-derivedDataPath .build/DerivedData -clonedSourcePackagesDirPath .build/SourcePackages -disablePackageRepositoryCache -skipPackageUpdates -jobs 2"
+xcode_local_flags := "-derivedDataPath .build/DerivedData -clonedSourcePackagesDirPath .build/SourcePackages -disablePackageRepositoryCache -skipPackageUpdates -skipPackagePluginValidation -jobs 2"
 
 # Regenerate TimberVox.xcodeproj from project.yml (run after any file add/move/delete)
 generate:
     xcodegen generate
 
 build: generate
-    xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug build
+    xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug -skipPackagePluginValidation build
 
 check-build: generate
     xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug {{xcode_local_flags}} CODE_SIGNING_ALLOWED=NO build
@@ -56,7 +56,7 @@ test-live: generate
 # Text-transform acceptance: real fixed requests through Voice Lab. Artifacts land in /tmp/timbervox-acceptance.
 test-transform-live: generate
     touch /tmp/timbervox-live-transform-acceptance
-    xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug -derivedDataPath .build/DerivedDataTransform test -only-testing:TimberVoxTests/TextTransformProviderLiveAcceptanceTests; status=$?; rm -f /tmp/timbervox-live-transform-acceptance; exit $status
+    xcodebuild -project TimberVox.xcodeproj -scheme TimberVox -configuration Debug -derivedDataPath .build/DerivedDataTransform -clonedSourcePackagesDirPath .build/SourcePackages -disablePackageRepositoryCache -skipPackageUpdates -skipPackagePluginValidation -jobs 2 CODE_SIGNING_ALLOWED=NO test -only-testing:TimberVoxTests/TextTransformProviderLiveAcceptanceTests; status=$?; rm -f /tmp/timbervox-live-transform-acceptance; exit $status
 
 # Local-model acceptance: prepares the Hummingbird batch route, verifies cache reuse across a fresh backend, then transcribes a known phrase with network access disabled.
 test-local-model-live: generate

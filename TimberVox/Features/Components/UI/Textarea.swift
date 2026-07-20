@@ -50,7 +50,7 @@ public struct SCTextarea: View {
         .scrollContentBackground(.hidden)
         .focused($isFocused)
         .frame(minHeight: minHeight, alignment: .topLeading)
-        .accessibilityHint(text.isEmpty ? placeholder : "")
+        .accessibilityHint(accessibilityHint)
 
       if text.isEmpty {
         Text(placeholder)
@@ -91,6 +91,15 @@ public struct SCTextarea: View {
 
   private var resolvedIsInvalid: Bool {
     explicitIsInvalid.resolve(inherited: fieldIsInvalid)
+  }
+
+  /// The web textarea announces invalidity through aria-invalid; a hint is
+  /// the native equivalent, matching SCSwitch. The placeholder hint is
+  /// preserved because the visible placeholder is hidden from accessibility.
+  private var accessibilityHint: String {
+    let placeholderHint = text.isEmpty ? placeholder : ""
+    guard resolvedIsInvalid else { return placeholderHint }
+    return placeholderHint.isEmpty ? "Invalid entry" : "Invalid entry. \(placeholderHint)"
   }
 
   /// Outer padding, minus `TextEditor`'s intrinsic insets (5pt line-fragment
