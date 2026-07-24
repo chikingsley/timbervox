@@ -89,6 +89,8 @@ final class DictationWorkflow {
   var activeContextWasPersisted = false
   var activeSourceApplication: SourceApplication?
   var activeCallbacks: DictationWorkflowCallbacks?
+  private var realtimePCMContinuation: AsyncStream<[Float]>.Continuation?
+  private var realtimePCMConsumer: Task<Void, Never>?
 
   init(
     recorder: DictationAudioRecorder = DictationAudioRecorder(),
@@ -185,6 +187,7 @@ final class DictationWorkflow {
       activeContext = snapshot.context
     }
     let recording = try await recorder.finish()
+    await finishRealtimePCMInput()
     await playbackPolicy.restore()
     return recording
   }
@@ -229,17 +232,17 @@ final class DictationWorkflow {
       onTranscript: callbacks.onLiveTranscript,
       onError: callbacks.onRealtimeError
     )
+    startRealtimePCMInput()
   }
 
   private func makeSampleHandler(
     plan: DictationExecutionPlan,
     callbacks: DictationWorkflowCallbacks
   ) -> @Sendable ([Float]) -> Void {
-    { [weak self] samples in
+    let pcmContinuation = plan.transport == .realtime ? realtimePCMContinuation : nil
+    return { samples in
       callbacks.onSamples(samples)
-      Task { @MainActor in
-        await self?.sendRealtimePCM(samples, plan: plan)
-      }
+      pcmContinuation?.yield(samples)
     }
   }
 
@@ -275,15 +278,36 @@ final class DictationWorkflow {
 }
 
 private extension DictationWorkflow {
-  func sendRealtimePCM(
-    _ samples: [Float],
-    plan: DictationExecutionPlan
-  ) async {
-    guard plan.transport == .realtime else { return }
-    await transcription.sendRealtimePCM(samples)
+  func startRealtimePCMInput() {
+    let (stream, continuation) = AsyncStream.makeStream(of: [Float].self)
+    realtimePCMContinuation = continuation
+    realtimePCMConsumer = Task { @MainActor [weak self] in
+      for await samples in stream {
+        guard let self else { return }
+        await transcription.sendRealtimePCM(samples)
+      }
+    }
+  }
+
+  func finishRealtimePCMInput() async {
+    realtimePCMContinuation?.finish()
+    realtimePCMContinuation = nil
+    let consumer = realtimePCMConsumer
+    realtimePCMConsumer = nil
+    await consumer?.value
+  }
+
+  func cancelRealtimePCMInput() async {
+    realtimePCMContinuation?.finish()
+    realtimePCMContinuation = nil
+    let consumer = realtimePCMConsumer
+    realtimePCMConsumer = nil
+    consumer?.cancel()
+    await consumer?.value
   }
 
   func cancelRealtimeSessions() async {
+    await cancelRealtimePCMInput()
     await transcription.cancelRealtime()
   }
 }

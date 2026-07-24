@@ -23,6 +23,12 @@ public struct SCSidebarTrigger: View {
     }
     .buttonStyle(.sc(.ghost, size: .iconSM))
     .accessibilityLabel("Toggle Sidebar")
+    .accessibilityIdentifier("sidebar.toggle")
+    .accessibilityValue(
+      state.isCompact
+        ? (state.openMobile ? "Expanded" : "Collapsed")
+        : (state.isOpen ? "Expanded" : "Collapsed")
+    )
     .scTooltip("Toggle sidebar", edge: .bottom)
     .help("Toggle Sidebar")
   }

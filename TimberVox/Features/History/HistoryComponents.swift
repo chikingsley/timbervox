@@ -280,11 +280,10 @@ struct HistoryTranscriptModePicker: View {
           if let mode { onSelect(mode) }
         }
       ),
-      items: HistoryTranscriptViewMode.allCases.map { mode in
+      items: availableModes.map { mode in
         SCToggleGroupItem(
           value: mode,
-          label: mode.label,
-          isDisabled: !availableModes.contains(mode)
+          label: mode.label
         )
       }
     )
@@ -323,7 +322,7 @@ struct HistoryIconAction: View {
     } label: {
       Image(systemName: isConfirmed ? (confirmationSystemImage ?? systemImage) : systemImage)
     }
-    .buttonStyle(.sc(role == .destructive ? .destructive : .ghost, size: .iconXS))
+    .buttonStyle(.sc(.ghost, size: .iconXS))
     .help(label)
     .accessibilityLabel(label)
   }

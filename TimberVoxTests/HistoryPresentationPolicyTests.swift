@@ -35,6 +35,27 @@ final class HistoryPresentationPolicyTests: XCTestCase {
     XCTAssertEqual(record.availableTranscriptModes, [.raw, .segmented, .processed])
   }
 
+  func testUnprocessedTimedArtifactExposesOnlyRawAndSegmentedModes() throws {
+    var record = record(textLength: 12)
+    record.transcriptionArtifactJSON = try artifactJSON(
+      TestTranscriptionArtifact.make(
+        text: "raw words",
+        words: [
+          TranscriptionTimedText(
+            endSeconds: 0.5,
+            scores: nil,
+            speaker: nil,
+            startSeconds: 0,
+            text: "raw"
+          )
+        ]
+      )
+    )
+
+    XCTAssertFalse(record.hasProcessedTranscript)
+    XCTAssertEqual(record.availableTranscriptModes, [.raw, .segmented])
+  }
+
   private func record(textLength: Int) -> TranscriptRecord {
     TranscriptRecord(
       id: nil,

@@ -94,11 +94,22 @@ public struct SCTranscriptViewerScrubBar: View {
   @Environment(\.theme) private var theme
 
   var showTimeLabels: Bool
+  var trackTint: Color?
+  var progressTint: Color?
+  var thumbTint: Color?
 
   /// - Parameter showTimeLabels: Shows elapsed/remaining labels below
   ///   the track.
-  public init(showTimeLabels: Bool = true) {
+  public init(
+    showTimeLabels: Bool = true,
+    trackTint: Color? = nil,
+    progressTint: Color? = nil,
+    thumbTint: Color? = nil
+  ) {
     self.showTimeLabels = showTimeLabels
+    self.trackTint = trackTint
+    self.progressTint = progressTint
+    self.thumbTint = thumbTint
   }
 
   public var body: some View {
@@ -117,8 +128,8 @@ public struct SCTranscriptViewerScrubBar: View {
     ) {
       VStack(spacing: 4) {
         SCScrubBarTrack {
-          SCScrubBarProgress()
-          SCScrubBarThumb()
+          SCScrubBarProgress(trackTint: trackTint, progressTint: progressTint)
+          SCScrubBarThumb(tint: thumbTint)
         }
         if showTimeLabels {
           HStack {

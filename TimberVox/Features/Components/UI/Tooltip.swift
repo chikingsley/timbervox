@@ -1,7 +1,5 @@
-// ============================================================
 // Tooltip.swift — swiftcn-ui
 // Depends on: Theme/
-// ============================================================
 import Observation
 import SwiftUI
 
@@ -27,34 +25,43 @@ public struct SCTooltipProvider<Content: View>: View {
   }
 
   public var body: some View {
-    ZStack(alignment: .topLeading) {
-      content
-        .environment(\.scTooltipCoordinator, coordinator)
-
-      if let presentation = coordinator.presentation {
-        SCTooltipContent(presentation.text, side: presentation.edge)
-          .background {
-            GeometryReader { proxy in
-              Color.clear
-                .onAppear { bubbleSize = proxy.size }
-                .onChange(of: proxy.size) { _, size in bubbleSize = size }
+    content
+      .environment(\.scTooltipCoordinator, coordinator)
+      .overlay(alignment: .topLeading) {
+        if let presentation = coordinator.presentation {
+          SCTooltipContent(presentation.text, side: presentation.edge)
+            .background {
+              GeometryReader { proxy in
+                Color.clear
+                  .onAppear { updateBubbleSize(proxy.size) }
+                  .onChange(of: proxy.size) { _, size in updateBubbleSize(size) }
+              }
             }
-          }
-          .position(position(for: presentation))
-          .allowsHitTesting(false)
-          .transition(.opacity.combined(with: .scale(scale: 0.95)))
-          .zIndex(10_000)
+            .position(position(for: presentation))
+            .allowsHitTesting(false)
+            .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            .zIndex(10_000)
+        }
       }
-    }
-    .background {
-      GeometryReader { proxy in
-        Color.clear
-          .onAppear { providerSize = proxy.size }
-          .onChange(of: proxy.size) { _, size in providerSize = size }
+      .background {
+        GeometryReader { proxy in
+          Color.clear
+            .onAppear { updateProviderSize(proxy.size) }
+            .onChange(of: proxy.size) { _, size in updateProviderSize(size) }
+        }
       }
-    }
-    .coordinateSpace(name: SCTooltipCoordinateSpace.name)
-    .animation(.snappy(duration: 0.18), value: coordinator.presentation)
+      .coordinateSpace(name: SCTooltipCoordinateSpace.name)
+      .animation(.snappy(duration: 0.18), value: coordinator.presentation?.id)
+  }
+
+  private func updateProviderSize(_ size: CGSize) {
+    guard providerSize != size else { return }
+    providerSize = size
+  }
+
+  private func updateBubbleSize(_ size: CGSize) {
+    guard bubbleSize != size else { return }
+    bubbleSize = size
   }
 
   private func position(for presentation: SCTooltipPresentation) -> CGPoint {
@@ -256,6 +263,7 @@ private struct SCTooltipModifier: ViewModifier {
         }
       }
       .onPreferenceChange(SCTooltipAnchorPreferenceKey.self) { frame in
+        guard anchor != frame else { return }
         anchor = frame
         coordinator?.updateAnchor(frame, id: id)
       }
@@ -325,7 +333,9 @@ private final class SCTooltipCoordinator {
   }
 
   func show(id: UUID, text: String, edge: Edge, anchor: CGRect) {
-    presentation = SCTooltipPresentation(id: id, text: text, edge: edge, anchor: anchor)
+    let next = SCTooltipPresentation(id: id, text: text, edge: edge, anchor: anchor)
+    guard presentation != next else { return }
+    presentation = next
   }
 
   func hide(id: UUID) {
@@ -334,8 +344,9 @@ private final class SCTooltipCoordinator {
   }
 
   func updateAnchor(_ anchor: CGRect, id: UUID) {
-    guard presentation?.id == id else { return }
-    presentation?.anchor = anchor
+    guard var current = presentation, current.id == id, current.anchor != anchor else { return }
+    current.anchor = anchor
+    presentation = current
   }
 }
 

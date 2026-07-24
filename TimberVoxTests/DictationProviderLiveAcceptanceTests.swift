@@ -13,6 +13,42 @@ final class DictationProviderLiveAcceptanceTests: XCTestCase {
     "The quick brown fox jumps over the lazy dog while Peter Piper picks a peck of pickled peppers."
   private static let keywords = ["quick", "brown", "fox", "lazy", "dog", "peter", "piper", "pepper"]
   private static let model = "deepgram-nova-3"
+  private static let mistralRealtimeModel = "mistral-voxtral-mini-transcribe-realtime-2602"
+
+  func testKnownAudioStreamsThroughRealtimeClientProtocol() async throws {
+    try LiveAudioTest.requireProviderAcceptance()
+    let artifacts = try LiveAudioTest.makeArtifactsDirectory(named: "realtime-client")
+    let speechURL = artifacts.appendingPathComponent("speech.aiff")
+    _ = try LiveAudioTest.writeSpokenPhrase(Self.phrase, to: speechURL)
+    let samples = try LiveAudioTest.samples(at: speechURL)
+    XCTAssertFalse(samples.isEmpty)
+
+    let session = CloudRealtimeTranscriptionSession {
+      CloudRealtimeTranscriptionClient(baseURL: APIConnector.defaultBaseURL)
+    }
+    try await session.start(
+      model: Self.mistralRealtimeModel,
+      language: "en",
+      onTranscript: { _ in },
+      onError: { _ in }
+    )
+
+    let chunkSamples = 2_560
+    for offset in stride(from: 0, to: samples.count, by: chunkSamples) {
+      let end = min(offset + chunkSamples, samples.count)
+      await session.sendPCM(Array(samples[offset..<end]))
+      try await Task.sleep(for: .milliseconds(10))
+    }
+
+    let transcript = try await session.finish().displayText
+    try save(transcript, as: "realtime-transcript.txt", in: artifacts)
+    let hits = LiveAudioTest.matchedKeywords(Self.keywords, in: transcript)
+    XCTAssertGreaterThanOrEqual(
+      hits.count,
+      3,
+      "Realtime client missed the known speech fixture. Transcript: \(transcript)"
+    )
+  }
 
   func testRealSpeechReachesRealtimeAndBatchProviders() async throws {
     try LiveAudioTest.requireProviderAcceptance()

@@ -16,6 +16,7 @@ final class HistoryAudioPlayer: SCTranscriptViewerPlayer {
   private(set) var duration: TimeInterval = 0
   private(set) var availability = Availability.loading
 
+  @ObservationIgnored private var monitorTask: Task<Void, Never>?
   private var audioPlayer: AVAudioPlayer?
 
   func load(audioPath: String?) async {
@@ -38,11 +39,6 @@ final class HistoryAudioPlayer: SCTranscriptViewerPlayer {
       duration = loadedPlayer.duration
       currentTime = 0
       availability = .ready
-
-      while !Task.isCancelled, audioPlayer === loadedPlayer {
-        synchronize(with: loadedPlayer)
-        try? await Task.sleep(for: .milliseconds(50))
-      }
     } catch {
       audioPlayer = nil
       duration = 0
@@ -57,11 +53,20 @@ final class HistoryAudioPlayer: SCTranscriptViewerPlayer {
       seek(to: 0)
     }
     isPlaying = audioPlayer.play()
+    if isPlaying {
+      startMonitoring(audioPlayer)
+    }
   }
 
   func pause() {
     audioPlayer?.pause()
-    isPlaying = false
+    monitorTask?.cancel()
+    monitorTask = nil
+    if let audioPlayer {
+      synchronize(with: audioPlayer)
+    } else {
+      isPlaying = false
+    }
   }
 
   func seek(to time: TimeInterval) {
@@ -71,6 +76,8 @@ final class HistoryAudioPlayer: SCTranscriptViewerPlayer {
   }
 
   func stop() {
+    monitorTask?.cancel()
+    monitorTask = nil
     audioPlayer?.stop()
     audioPlayer = nil
     isPlaying = false
@@ -79,8 +86,36 @@ final class HistoryAudioPlayer: SCTranscriptViewerPlayer {
   }
 
   private func synchronize(with player: AVAudioPlayer) {
-    currentTime = min(max(player.currentTime, 0), duration)
-    isPlaying = player.isPlaying
+    let nextTime = min(max(player.currentTime, 0), duration)
+    if abs(currentTime - nextTime) >= 0.001 {
+      currentTime = nextTime
+    }
+    if isPlaying != player.isPlaying {
+      isPlaying = player.isPlaying
+    }
+  }
+
+  private func startMonitoring(_ player: AVAudioPlayer) {
+    monitorTask?.cancel()
+    monitorTask = Task { @MainActor [weak self, weak player] in
+      while !Task.isCancelled,
+        let self,
+        let player,
+        self.audioPlayer === player,
+        player.isPlaying
+      {
+        self.synchronize(with: player)
+        try? await Task.sleep(for: .milliseconds(50))
+      }
+
+      guard !Task.isCancelled,
+        let self,
+        let player,
+        self.audioPlayer === player
+      else { return }
+      self.synchronize(with: player)
+      self.monitorTask = nil
+    }
   }
 }
 
@@ -102,14 +137,18 @@ struct HistoryPlaybackControls: View {
     }
     .padding(.horizontal, AppSpacing.md)
     .padding(.vertical, AppSpacing.sm)
-    .background(theme.muted.opacity(0.45), in: shape)
+    .background(theme.accent, in: shape)
     .overlay { shape.strokeBorder(theme.border) }
   }
 
   private var playbackBar: some View {
     HStack(spacing: AppSpacing.sm) {
       SCTranscriptViewerPlayPauseButton(variant: .ghost, size: .iconXS)
-      SCTranscriptViewerScrubBar()
+      SCTranscriptViewerScrubBar(
+        trackTint: theme.cardForeground.opacity(0.2),
+        progressTint: theme.cardForeground,
+        thumbTint: theme.cardForeground
+      )
     }
     .font(.system(size: 10, weight: .medium))
     .foregroundStyle(theme.mutedForeground)

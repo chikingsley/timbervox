@@ -35,12 +35,14 @@ struct HistoryRecordControls<ContextAction: View>: View {
       HistoryPlaybackControls(record: record, player: player)
 
       HStack(spacing: AppSpacing.sm) {
-        HistoryTranscriptModePicker(
-          selection: transcriptMode,
-          availableModes: record.availableTranscriptModes,
-          onSelect: onSetTranscriptMode
-        )
-        .disabled(!record.hasTranscriptText)
+        if record.availableTranscriptModes.count > 1 {
+          HistoryTranscriptModePicker(
+            selection: transcriptMode,
+            availableModes: record.availableTranscriptModes,
+            onSelect: onSetTranscriptMode
+          )
+          .disabled(!record.hasTranscriptText)
+        }
 
         Spacer(minLength: AppSpacing.sm)
 
@@ -67,6 +69,7 @@ struct HistoryRecordControls<ContextAction: View>: View {
 
       HistoryRecordFooter(record: record)
     }
+    .padding(.top, AppSpacing.sm)
   }
 }
 

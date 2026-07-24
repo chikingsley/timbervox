@@ -91,6 +91,10 @@ enum RealtimeEventParser {
 
   private struct SessionStartedEnvelope: Decodable {
     var sessionID: String
+
+    private enum CodingKeys: String, CodingKey {
+      case sessionID = "sessionId"
+    }
   }
 
   private struct TerminalEnvelope: Decodable {

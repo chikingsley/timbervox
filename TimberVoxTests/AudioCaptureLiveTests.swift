@@ -4,6 +4,25 @@ import XCTest
 @testable import TimberVox
 
 final class AudioCaptureLiveTests: XCTestCase {
+  func testMicrophoneOnlyRecordingStartsAndFinishes() async throws {
+    try LiveAudioTest.requireLiveCapture()
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let outputURL = directory.appendingPathComponent("microphone.wav")
+    let recorder = DictationAudioRecorder()
+
+    try await recorder.start(writingTo: outputURL, includesSystemAudio: false)
+    try await Task.sleep(for: .seconds(1))
+    let finishedRecording = try await recorder.finish()
+    let recording = try XCTUnwrap(finishedRecording)
+    let file = try AVAudioFile(forReading: recording.url)
+
+    XCTAssertEqual(file.processingFormat.sampleRate, 16_000)
+    XCTAssertEqual(file.processingFormat.channelCount, 1)
+    XCTAssertGreaterThan(recording.duration, 0.8)
+  }
+
   func testMicrophoneAndSystemAudioProduceMixedRecording() async throws {
     try LiveAudioTest.requireLiveCapture()
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

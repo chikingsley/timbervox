@@ -3,6 +3,24 @@ import XCTest
 @testable import TimberVox
 
 final class RealtimeProtocolTests: XCTestCase {
+  func testParsesSessionReadinessAndAudioAcknowledgementEvents() throws {
+    let started = try RealtimeEventParser.parse(
+      #"{"protocol_version":1,"sequence":1,"session_id":"rt_1","language":null,"model":"mistral-voxtral-mini-transcribe-realtime-2602","type":"session.started"}"#
+    )
+    guard case .sessionStarted(let sessionID, _) = started else {
+      return XCTFail("Expected a session.started event.")
+    }
+    XCTAssertEqual(sessionID, "rt_1")
+
+    let acknowledged = try RealtimeEventParser.parse(
+      #"{"audio_bytes":5120,"chunk_bytes":5120,"message_count":1,"session_id":"rt_1","type":"audio.received"}"#
+    )
+    guard case .audioReceived(let totalBytes, _) = acknowledged else {
+      return XCTFail("Expected an audio.received event.")
+    }
+    XCTAssertEqual(totalBytes, 5_120)
+  }
+
   func testParsesProviderNeutralTranscriptEvents() throws {
     let interim = try RealtimeEventParser.parse(
       #"{"protocol_version":1,"sequence":2,"session_id":"rt_1","type":"transcript.interim","text":"hello","segments":[],"speaker_turns":[],"words":[]}"#

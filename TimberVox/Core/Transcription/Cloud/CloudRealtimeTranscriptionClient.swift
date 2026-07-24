@@ -86,10 +86,29 @@ actor CloudRealtimeTranscriptionClient {
     sessionID = nil
     terminalReceived = false
 
+    task.resume()
+    let initialEvent: CloudRealtimeTranscriptionEvent
+    do {
+      initialEvent = try await receiveInitialEvent(from: task)
+    } catch {
+      task.cancel(with: .goingAway, reason: nil)
+      self.task = nil
+      throw error
+    }
+
+    guard case .sessionStarted(let sessionID, _) = initialEvent else {
+      task.cancel(with: .protocolError, reason: nil)
+      self.task = nil
+      throw CloudRealtimeClientError.malformedEvent(
+        "the first realtime event was not session.started"
+      )
+    }
+    self.sessionID = sessionID
+
     let (stream, continuation) = AsyncThrowingStream<CloudRealtimeTranscriptionEvent, Error>
       .makeStream()
     self.continuation = continuation
-    task.resume()
+    continuation.yield(initialEvent)
     startReceiveLoop(task: task)
     return stream
   }
@@ -118,16 +137,34 @@ actor CloudRealtimeTranscriptionClient {
       while !Task.isCancelled {
         do {
           let message = try await task.receive()
-          await self?.handle(message: message)
+          await self?.handle(message: message, from: task)
         } catch {
-          await self?.finishAfterDisconnect(error: error)
+          await self?.finishAfterDisconnect(error: error, from: task)
           return
         }
       }
     }
   }
 
-  private func handle(message: URLSessionWebSocketTask.Message) {
+  private func receiveInitialEvent(
+    from task: URLSessionWebSocketTask
+  ) async throws -> CloudRealtimeTranscriptionEvent {
+    let message = try await task.receive()
+    switch message {
+    case .string(let text):
+      return try RealtimeEventParser.parse(text)
+    case .data:
+      throw CloudRealtimeClientError.unsupportedMessage
+    @unknown default:
+      throw CloudRealtimeClientError.unsupportedMessage
+    }
+  }
+
+  private func handle(
+    message: URLSessionWebSocketTask.Message,
+    from task: URLSessionWebSocketTask
+  ) {
+    guard self.task === task else { return }
     switch message {
     case .string(let text):
       do {
@@ -165,7 +202,11 @@ actor CloudRealtimeTranscriptionClient {
     task = nil
   }
 
-  private func finishAfterDisconnect(error: Error) async {
+  private func finishAfterDisconnect(
+    error: Error,
+    from task: URLSessionWebSocketTask
+  ) async {
+    guard self.task === task else { return }
     if !terminalReceived, let sessionID {
       do {
         let recovered = try await recover(sessionID: sessionID)

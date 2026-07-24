@@ -227,7 +227,13 @@ public struct SCScrubBarProgress: View {
   @Environment(\.scScrubBar) private var scrubBar
   @Environment(\.theme) private var theme
 
-  public init() {}
+  private let trackTint: Color?
+  private let progressTint: Color?
+
+  public init(trackTint: Color? = nil, progressTint: Color? = nil) {
+    self.trackTint = trackTint
+    self.progressTint = progressTint
+  }
 
   public var body: some View {
     if let context = scrubBar {
@@ -243,8 +249,10 @@ public struct SCScrubBarProgress: View {
       accessibilityLabel: "Playback progress",
       showsDefaultTrack: false
     ) {
-      SCProgressTrack(height: 8, tint: theme.primary.opacity(0.2)) {
-        SCProgressIndicator(animationDuration: 0)
+      SCProgressTrack(height: 8, tint: trackTint ?? theme.primary.opacity(0.2)) {
+        SCProgressIndicator(animationDuration: 0) { _ in
+          Rectangle().fill(progressTint ?? theme.primary)
+        }
       }
     }
     .allowsHitTesting(false)
@@ -263,9 +271,11 @@ public struct SCScrubBarThumb<Content: View>: View {
   @Environment(\.theme) private var theme
 
   var content: Content
+  private let tint: Color?
 
   /// - Parameter content: Optional content drawn over the circle.
-  public init(@ViewBuilder content: () -> Content) {
+  public init(tint: Color? = nil, @ViewBuilder content: () -> Content) {
+    self.tint = tint
     self.content = content()
   }
 
@@ -282,7 +292,7 @@ public struct SCScrubBarThumb<Content: View>: View {
     GeometryReader { geometry in
       ZStack {
         Circle()
-          .fill(theme.primary)
+          .fill(tint ?? theme.primary)
           .frame(width: Self.diameter, height: Self.diameter)
         content
       }
@@ -297,8 +307,8 @@ public struct SCScrubBarThumb<Content: View>: View {
 
 extension SCScrubBarThumb where Content == EmptyView {
   /// A plain thumb with no custom content.
-  public init() {
-    self.init { EmptyView() }
+  public init(tint: Color? = nil) {
+    self.init(tint: tint) { EmptyView() }
   }
 }
 

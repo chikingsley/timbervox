@@ -39,7 +39,7 @@ final class CloudRealtimeTranscriptionSession {
   }
 
   func sendPCM(_ samples: [Float]) async {
-    guard !samples.isEmpty, let client else { return }
+    guard !samples.isEmpty, assembler.errorMessage == nil, let client else { return }
     do {
       try await client.sendPCM(samples)
     } catch {
@@ -52,18 +52,20 @@ final class CloudRealtimeTranscriptionSession {
     guard let client else {
       throw TranscriptionRuntimeError.realtimeFailed("Realtime session was not connected.")
     }
-    do {
-      try await client.requestClose()
-    } catch {
+    if let realtimeError = assembler.errorMessage {
       await client.disconnect()
       eventTask?.cancel()
       reset()
-      throw TranscriptionRuntimeError.realtimeFailed(
-        "Could not close the realtime session: \(error.localizedDescription)"
-      )
+      throw TranscriptionRuntimeError.realtimeFailed(realtimeError)
+    }
+    var closeError: Error?
+    do {
+      try await client.requestClose()
+    } catch {
+      closeError = error
     }
 
-    let deadline = Date.now.addingTimeInterval(1.5)
+    let deadline = Date.now.addingTimeInterval(5)
     while !assembler.streamEnded, Date.now < deadline {
       try await Task.sleep(for: .milliseconds(50))
     }
@@ -83,12 +85,17 @@ final class CloudRealtimeTranscriptionSession {
       }
       throw TranscriptionRuntimeError.realtimeFailed(realtimeError)
     }
-    guard let artifact else {
+    if let artifact {
+      return artifact
+    }
+    if let closeError {
       throw TranscriptionRuntimeError.realtimeFailed(
-        "The completed realtime session did not contain an artifact."
+        "Could not close the realtime session: \(closeError.localizedDescription)"
       )
     }
-    return artifact
+    throw TranscriptionRuntimeError.realtimeFailed(
+      "The completed realtime session did not contain an artifact."
+    )
   }
 
   func cancel() async {
@@ -111,10 +118,12 @@ final class CloudRealtimeTranscriptionSession {
       }
     } catch {
       recordError(error.localizedDescription)
+      logger.error("Realtime event stream failed: \(error.localizedDescription)")
     }
   }
 
   private func recordError(_ message: String) {
+    guard assembler.errorMessage == nil else { return }
     assembler.fail(message)
     onError?(message)
   }
