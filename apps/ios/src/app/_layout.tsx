@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { AppHeaderBackButton } from "@/components/app/app-header-back-button";
 import { DictationSessionProvider } from "@/features/dictation/dictation-session";
+import { AnimatedSplash } from "@/features/splash/animated-splash";
 import { LocalModelPackageProvider } from "@/features/dictation/local-model-package";
 import { HistoryProvider } from "@/features/history/history-store";
 import { ModeProvider } from "@/features/modes/mode-provider";
@@ -56,6 +57,7 @@ export default function RootLayout() {
                     />
                   </Stack>
                   <PortalHost />
+                  <AnimatedSplash />
                 </ThemeProvider>
               </DictationSessionProvider>
             </LocalModelPackageProvider>

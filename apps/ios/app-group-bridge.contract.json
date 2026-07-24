@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "appGroup": "group.studio.peacockery.timbervox",
   "keys": {
     "capabilities": [
@@ -16,6 +16,7 @@
       "keyboardSoundEnabled",
       "keyboardPredictionsEnabled",
       "keyboardAutocorrectEnabled",
+      "keyboardAutoCapitalizationEnabled",
       "keyboardSwipeEnabled",
       "keyboardPersonalVocabulary",
       "keyboardPersonalVocabularyRevision",

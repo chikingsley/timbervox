@@ -277,11 +277,6 @@ export function DictationSessionProvider({ children }: PropsWithChildren) {
       workflowRef.current.ready();
       return true;
     }
-    const pendingKeyboardRequestId =
-      readBridgeBoolean("recordingRequested") &&
-      readBridgeString("requestedEntryPoint") === "keyboard"
-        ? readBridgeString("keyboardRequestId")
-        : undefined;
     const permission = await requestRecordingPermissionsAsync();
     if (!permission.granted) {
       workflowRef.current.failBeforeStart({
@@ -303,15 +298,11 @@ export function DictationSessionProvider({ children }: PropsWithChildren) {
       writeBridgeBoolean("sessionStopRequested", false);
       sessionActiveRef.current = true;
       workflowRef.current.ready();
-      if (pendingKeyboardRequestId) {
-        lastRequestRevisionRef.current = readBridgeNumber("requestRevision");
-        writeBridgeBoolean("recordingRequested", true);
-        if (!beginDictation("keyboard", pendingKeyboardRequestId)) {
-          writeBridgeBoolean("recordingRequested", false);
-        }
-      } else {
-        writeBridgeBoolean("recordingRequested", false);
-      }
+      // The keyboard never arms a recording request before the session exists, so
+      // opening TimberVox only makes the session live. Recording still needs a
+      // deliberate tap once the user is back in their app.
+      lastRequestRevisionRef.current = readBridgeNumber("requestRevision");
+      writeBridgeBoolean("recordingRequested", false);
       return true;
     } catch {
       writeBridgeBoolean("sessionActive", false);

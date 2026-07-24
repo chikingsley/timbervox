@@ -17,7 +17,9 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSMicrophoneUsageDescription": "TimberVox records your voice while a dictation session is active.",
         "NSSupportsLiveActivities": true,
-        "UIBackgroundModes": ["audio"]
+        "UIBackgroundModes": [
+          "audio"
+        ]
       },
       "entitlements": {
         "com.apple.security.application-groups": [
@@ -44,9 +46,9 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#1e130a",
-          "image": "./assets/images/timbervox-icon.png",
-          "imageWidth": 160
+          "backgroundColor": "#21160b",
+          "image": "./assets/images/splash-mark.png",
+          "imageWidth": 240
         }
       ],
       [
@@ -85,6 +87,7 @@
         }
       ],
       "./plugins/with-timbervox-app-shortcuts",
+      "./plugins/with-timbervox-wrapper-shortcut",
       "./plugins/with-executorch-keyboard",
       "@bacons/apple-targets"
     ],

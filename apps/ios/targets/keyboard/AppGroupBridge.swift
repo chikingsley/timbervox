@@ -12,6 +12,7 @@ enum BridgeKey: String, CaseIterable {
   case keyboardSoundEnabled
   case keyboardPredictionsEnabled
   case keyboardAutocorrectEnabled
+  case keyboardAutoCapitalizationEnabled
   case keyboardSwipeEnabled
   case keyboardPersonalVocabulary
   case keyboardPersonalVocabularyRevision
@@ -66,7 +67,7 @@ enum KeyboardStatusNotifier {
 
 enum KeyboardBridge {
   static let group = "group.studio.peacockery.timbervox"
-  static let schemaVersion = 5
+  static let schemaVersion = 6
 
   private static var defaults: UserDefaults? {
     UserDefaults(suiteName: group)
@@ -93,6 +94,7 @@ enum KeyboardBridge {
     seed(true, for: .keyboardSoundEnabled)
     seed(true, for: .keyboardPredictionsEnabled)
     seed(true, for: .keyboardAutocorrectEnabled)
+    seed(true, for: .keyboardAutoCapitalizationEnabled)
     seed(true, for: .keyboardSwipeEnabled)
     seed("waveform", for: .liveActivityDisplayMode)
     seed(false, for: .streamingInsertionEnabled)

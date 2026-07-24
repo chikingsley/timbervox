@@ -30,7 +30,7 @@ describe("iPhone setup UI contract", () => {
     expect(source).not.toContain('Linking.openURL("shortcuts://")');
   });
 
-  it("opens the installed Apple-signed TimberVox App Shortcut", () => {
+  it("adds the signed wrapper with a single button on the shortcut screen", () => {
     const source = fs.readFileSync(
       path.join(projectRoot, "src/app/(onboarding)/shortcut.tsx"),
       "utf8",
@@ -40,7 +40,10 @@ describe("iPhone setup UI contract", () => {
       "utf8",
     );
 
-    expect(source).toContain("<ShortcutsButton");
+    // One add path only: the wrapper import button. The native Shortcuts-app
+    // link button lives in Settings, not beside it here.
+    expect(source).toContain("presentShortcutImport");
+    expect(source).not.toContain("<ShortcutsButton");
     expect(source).toContain('contentContainerClassName="grow');
     expect(source).toContain('edges={["top", "right", "bottom", "left"]}');
     expect(source).toContain("Add Toggle TimberVox Dictation");

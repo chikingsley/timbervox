@@ -176,12 +176,13 @@ final class KeyboardViewController: UIInputViewController {
     } else if status == "no_speech" {
       discardStreamedText(requestID: requestID)
       model.dictationFeedback(.warning)
-      model.predictions = ["No speech", "Try", "again"]
+      model.present(notice: "No speech detected")
     } else {
       discardStreamedText(requestID: requestID)
       model.dictationFeedback(.failure)
-      model.predictions = ["Dictation", "failed", "Try again"]
+      model.present(notice: "Dictation failed")
     }
+    model.endFinishing()
     KeyboardBridge.set(resultID, for: .consumedResultId)
     KeyboardBridge.remove(.finalTranscript)
     model.partialTranscript = ""
@@ -208,7 +209,7 @@ final class KeyboardViewController: UIInputViewController {
     }
     guard replaceStreamedText(with: transcript) else {
       blockedStreamingRequestID = requestID
-      model.predictions = ["Live insertion", "paused", "Cursor moved"]
+      model.present(notice: "Live insert paused — the cursor moved")
       return
     }
     model.refreshCapitalization()
@@ -222,12 +223,12 @@ final class KeyboardViewController: UIInputViewController {
         resetStreamingInsertion()
       } else {
         blockedStreamingRequestID = requestID
-        model.predictions = [text, "Final text", "Cursor moved"]
+        model.present(notice: "Tap to insert transcript", insertion: text, transient: false)
       }
       return
     }
     if blockedStreamingRequestID == requestID {
-      model.predictions = [text, "Tap to insert", ""]
+      model.present(notice: "Tap to insert transcript", insertion: text, transient: false)
       resetStreamingInsertion()
       return
     }
@@ -283,12 +284,36 @@ enum KeyboardPage {
   case symbols
 }
 
+/// What the dictation key itself is doing. Dictation never borrows the suggestion
+/// row for this: the swipe decoder owns `predictions`, the key owns its own state.
+enum DictationKeyState: Equatable {
+  /// Full Access is off, so the keyboard cannot reach the app group at all.
+  case restricted
+  /// No live TimberVox session, so a tap opens the app instead of recording.
+  case offline
+  case idle
+  case recording
+  case processing
+}
+
+/// A short, dictation-owned message shown over the suggestion row. It is a
+/// distinct layer from `predictions` and never replaces a typing suggestion.
+struct KeyboardNotice: Equatable {
+  var message: String
+  /// Text the notice hands back when tapped, for transcripts the keyboard could
+  /// not insert itself because the cursor moved.
+  var insertion: String?
+  var isTransient: Bool
+}
+
 @MainActor
 final class KeyboardModel: ObservableObject {
   @Published var predictions: [String] = []
+  @Published var notice: KeyboardNotice?
   @Published var partialTranscript = ""
   @Published var sessionActive = false
   @Published var recordingRequested = false
+  @Published var finishing = false
   @Published var sessionPhase = "off"
   @Published var hasFullAccess = false
   @Published var needsGlobe = true
@@ -297,11 +322,11 @@ final class KeyboardModel: ObservableObject {
   @Published var soundEnabled = true
   @Published var predictionsEnabled = true
   @Published var autocorrectEnabled = true
+  @Published var autoCapitalizationEnabled = true
   @Published var swipeEnabled = true
   @Published var streamingInsertionEnabled = false
   @Published var page = KeyboardPage.letters
   @Published var keyboardType = UIKeyboardType.default
-  @Published var returnKeyType = UIReturnKeyType.default
 
   weak var controller: UIInputViewController?
   weak var proxy: UITextDocumentProxy?
@@ -309,6 +334,17 @@ final class KeyboardModel: ObservableObject {
   private let decoder = NeuralSwipeDecoder()
   private let languageEngine = KeyboardLanguageEngine()
   private var deleteRepeatTask: Task<Void, Never>?
+  private var noticeDismissTask: Task<Void, Never>?
+  private var finishTimeoutTask: Task<Void, Never>?
+
+  var dictationKeyState: DictationKeyState {
+    if !hasFullAccess { return .restricted }
+    if recordingRequested { return .recording }
+    if finishing || sessionPhase == "processing" || sessionPhase == "finalizing" {
+      return .processing
+    }
+    return sessionActive ? .idle : .offline
+  }
 
   func prepareSwipeContext() {
     decoder.prepareContext()
@@ -324,7 +360,12 @@ final class KeyboardModel: ObservableObject {
 
   func refreshBridgeState() {
     let nextSessionActive = KeyboardBridge.bool(for: .sessionActive)
-    if sessionActive != nextSessionActive { sessionActive = nextSessionActive }
+    if sessionActive != nextSessionActive {
+      sessionActive = nextSessionActive
+      // The "open TimberVox" notice stays up until it is answered, so retire it
+      // the moment the session it asked for exists.
+      if nextSessionActive, notice?.insertion == nil { clearNotice() }
+    }
     let nextRecordingRequested = KeyboardBridge.bool(for: .recordingRequested)
     if recordingRequested != nextRecordingRequested { recordingRequested = nextRecordingRequested }
     let nextSessionPhase = KeyboardBridge.string(for: .sessionPhase) ?? "off"
@@ -339,6 +380,18 @@ final class KeyboardModel: ObservableObject {
     if predictionsEnabled != nextPredictionsEnabled { predictionsEnabled = nextPredictionsEnabled }
     let nextAutocorrectEnabled = KeyboardBridge.bool(for: .keyboardAutocorrectEnabled)
     if autocorrectEnabled != nextAutocorrectEnabled { autocorrectEnabled = nextAutocorrectEnabled }
+    let nextAutoCapitalizationEnabled = KeyboardBridge.bool(
+      for: .keyboardAutoCapitalizationEnabled
+    )
+    if autoCapitalizationEnabled != nextAutoCapitalizationEnabled {
+      autoCapitalizationEnabled = nextAutoCapitalizationEnabled
+      if nextAutoCapitalizationEnabled {
+        refreshCapitalization()
+      } else {
+        // Drop any auto-applied shift; from here shift is manual only.
+        shifted = false
+      }
+    }
     let nextSwipeEnabled = KeyboardBridge.bool(for: .keyboardSwipeEnabled)
     if swipeEnabled != nextSwipeEnabled { swipeEnabled = nextSwipeEnabled }
     let nextStreamingInsertionEnabled = KeyboardBridge.bool(for: .streamingInsertionEnabled)
@@ -364,10 +417,12 @@ final class KeyboardModel: ObservableObject {
 
   func refreshTraits() {
     keyboardType = proxy?.keyboardType ?? .default
-    returnKeyType = proxy?.returnKeyType ?? .default
   }
 
   func refreshCapitalization() {
+    // With auto-capitalization off, shift belongs entirely to the user: a
+    // manual shift tap must survive deletes and cursor moves until it is spent.
+    guard autoCapitalizationEnabled else { return }
     guard let context = proxy?.documentContextBeforeInput else {
       shifted = true
       return
@@ -450,7 +505,7 @@ final class KeyboardModel: ObservableObject {
   func insertReturn() {
     feedback()
     commitCurrentWord(append: "\n")
-    shifted = true
+    shifted = autoCapitalizationEnabled
     page = .letters
     refreshSuggestions()
   }
@@ -477,30 +532,14 @@ final class KeyboardModel: ObservableObject {
     page = page == .symbols ? .numbers : .symbols
   }
 
-  var returnKeyLabel: String {
-    switch returnKeyType {
-    case .continue: "continue"
-    case .done: "done"
-    case .emergencyCall: "emergency"
-    case .go: "go"
-    case .google: "google"
-    case .join: "join"
-    case .next: "next"
-    case .route: "route"
-    case .search: "search"
-    case .send: "send"
-    case .yahoo: "yahoo"
-    default: "return"
-    }
-  }
-
   func advanceKeyboard() {
     controller?.advanceToNextInputMode()
   }
 
   func toggleDictation() {
     guard hasFullAccess else {
-      predictions = ["Enable", "Full Access", "in Settings"]
+      dictationFeedback(.failure)
+      present(notice: "Turn on Full Access for the TimberVox keyboard in Settings")
       return
     }
     if recordingRequested {
@@ -512,26 +551,19 @@ final class KeyboardModel: ObservableObject {
       )
       recordingRequested = false
       partialTranscript = ""
-      predictions = ["Processing…", "Record again", "Session stays on"]
+      beginFinishing()
       return
     }
+    // Without a live session the app ignores a recording request, so arming one
+    // here would only strand the key in a recording state that never records.
+    // Opening TimberVox starts the session; the user comes back and taps again.
     guard sessionActive else {
-      let requestID = "keyboard_\(UUID().uuidString.lowercased())"
-      KeyboardBridge.set(requestID, for: .keyboardRequestId)
-      KeyboardBridge.set(requestID, for: .activeRequestId)
-      KeyboardBridge.set("keyboard", for: .requestedEntryPoint)
-      KeyboardBridge.set(true, for: .recordingRequested)
-      KeyboardBridge.set(
-        KeyboardBridge.integer(for: .requestRevision) + 1,
-        for: .requestRevision
-      )
-      recordingRequested = true
-      predictions = ["Opening", "TimberVox", "session"]
-      dictationFeedback(.start)
+      dictationFeedback(.warning)
       openPersonalSession()
       return
     }
     dictationFeedback(.start)
+    clearNotice()
     let requestID = "keyboard_\(UUID().uuidString.lowercased())"
     KeyboardBridge.set(requestID, for: .keyboardRequestId)
     KeyboardBridge.set(requestID, for: .activeRequestId)
@@ -539,7 +571,54 @@ final class KeyboardModel: ObservableObject {
     KeyboardBridge.set(true, for: .recordingRequested)
     KeyboardBridge.set(KeyboardBridge.integer(for: .requestRevision) + 1, for: .requestRevision)
     recordingRequested = true
-    predictions = ["Listening…", "Speak", "naturally"]
+    finishing = false
+  }
+
+  /// Shows the processing state on the dictation key until a result lands, with a
+  /// ceiling so a session that dies mid-flight cannot pin the key there forever.
+  private func beginFinishing() {
+    finishing = true
+    finishTimeoutTask?.cancel()
+    finishTimeoutTask = Task { @MainActor [weak self] in
+      try? await Task.sleep(for: .seconds(20))
+      guard !Task.isCancelled else { return }
+      self?.finishing = false
+    }
+  }
+
+  func endFinishing() {
+    finishTimeoutTask?.cancel()
+    finishTimeoutTask = nil
+    finishing = false
+  }
+
+  func present(notice message: String, insertion: String? = nil, transient: Bool = true) {
+    noticeDismissTask?.cancel()
+    notice = KeyboardNotice(message: message, insertion: insertion, isTransient: transient)
+    guard transient else { return }
+    noticeDismissTask = Task { @MainActor [weak self] in
+      try? await Task.sleep(for: .seconds(3))
+      guard !Task.isCancelled else { return }
+      self?.notice = nil
+    }
+  }
+
+  func clearNotice() {
+    noticeDismissTask?.cancel()
+    noticeDismissTask = nil
+    notice = nil
+  }
+
+  func acceptNotice() {
+    guard let insertion = notice?.insertion, !insertion.isEmpty else {
+      clearNotice()
+      return
+    }
+    feedback()
+    proxy?.insertText(textForInsertion(insertion))
+    clearNotice()
+    refreshCapitalization()
+    refreshSuggestions()
   }
 
   func handleSwipe(samples: [SwipePoint], layout: KeyLayout) {
@@ -579,6 +658,10 @@ final class KeyboardModel: ObservableObject {
   }
 
   private func feedback() {
+    // Typing means the user has moved on from whatever dictation was telling
+    // them, so the row goes back to suggestions. A notice carrying recovered
+    // text is the exception: it stays until it is tapped or the text is lost.
+    if let notice, notice.insertion == nil { clearNotice() }
     ordinaryHapticFeedback()
     if soundEnabled {
       UIDevice.current.playInputClick()
@@ -669,6 +752,7 @@ final class KeyboardModel: ObservableObject {
       rejectPersonalSessionOpen()
       return
     }
+    present(notice: "Opening TimberVox to start a session")
     extensionContext.open(url) { [weak self] opened in
       guard !opened else { return }
       Task { @MainActor [weak self] in
@@ -678,13 +762,7 @@ final class KeyboardModel: ObservableObject {
   }
 
   private func rejectPersonalSessionOpen() {
-    KeyboardBridge.set(false, for: .recordingRequested)
-    KeyboardBridge.set(
-      KeyboardBridge.integer(for: .requestRevision) + 1,
-      for: .requestRevision
-    )
-    recordingRequested = false
-    predictions = ["Open TimberVox", "Start session", "Return here"]
+    present(notice: "Open TimberVox, start a session, then come back")
   }
 }
 

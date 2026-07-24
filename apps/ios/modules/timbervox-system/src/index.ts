@@ -7,9 +7,12 @@ const NativeShortcutsButton: ComponentType<ViewProps> =
 
 const TimberVoxSystem = requireNativeModule<{
   acknowledgeNativeResult: (filename: string) => void;
+  clearShortcutDiagnostics: () => void;
   getKeyboardStatus: () => KeyboardStatus;
   getNativeResultOutbox: () => NativeResultOutboxItem[];
+  getShortcutDiagnostics: () => string;
   markKeyboardVerificationRequired: () => void;
+  presentShortcutImport: () => Promise<boolean>;
   requestNativeSessionStop: () => void;
   startKeyboardStatusObserver: () => void;
 }>("TimberVoxSystem");
@@ -41,6 +44,18 @@ function getNativeResultOutbox() {
   return TimberVoxSystem.getNativeResultOutbox();
 }
 
+function getShortcutDiagnostics() {
+  return TimberVoxSystem.getShortcutDiagnostics();
+}
+
+function clearShortcutDiagnostics() {
+  TimberVoxSystem.clearShortcutDiagnostics();
+}
+
+function presentShortcutImport() {
+  return TimberVoxSystem.presentShortcutImport();
+}
+
 function requestNativeSessionStop() {
   TimberVoxSystem.requestNativeSessionStop();
 }
@@ -51,10 +66,13 @@ function startKeyboardStatusObserver() {
 
 export {
   acknowledgeNativeResult,
+  clearShortcutDiagnostics,
   getKeyboardStatus,
   getNativeResultOutbox,
+  getShortcutDiagnostics,
   markKeyboardVerificationRequired,
   NativeShortcutsButton,
+  presentShortcutImport,
   requestNativeSessionStop,
   startKeyboardStatusObserver,
 };

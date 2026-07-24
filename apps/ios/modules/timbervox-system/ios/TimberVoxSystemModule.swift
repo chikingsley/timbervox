@@ -31,6 +31,35 @@ public final class TimberVoxSystemModule: Module {
       NativeResultOutbox.acknowledge(filename: filename)
     }
 
+    Function("getShortcutDiagnostics") {
+      ShortcutDiagnostics.exportJSON()
+    }
+
+    Function("clearShortcutDiagnostics") {
+      ShortcutDiagnostics.clear()
+    }
+
+    // Presents the bundled signed wrapper shortcut so the user can add it to
+    // their library with one tap. iOS has no direct import API for local
+    // shortcut files, so the share sheet's Shortcuts row is the entry point.
+    AsyncFunction("presentShortcutImport") { (promise: Promise) in
+      DispatchQueue.main.async {
+        guard
+          let url = Bundle.main.url(
+            forResource: "Toggle TimberVox Dictation",
+            withExtension: "shortcut"
+          ),
+          let viewController = self.appContext?.utilities?.currentViewController()
+        else {
+          promise.resolve(false)
+          return
+        }
+        let activity = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        viewController.present(activity, animated: true)
+        promise.resolve(true)
+      }
+    }
+
     View(TimberVoxShortcutsButton.self) {}
   }
 }
@@ -82,6 +111,61 @@ private enum NativeResultOutbox {
       )
     else { return nil }
     let directory = container.appendingPathComponent("NativeResultOutbox", isDirectory: true)
+    try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    return directory
+  }
+}
+
+private enum ShortcutDiagnostics {
+  private static let group = "group.studio.peacockery.timbervox"
+
+  static func exportJSON() -> String {
+    let events = eventURLs().compactMap { url -> [String: Any]? in
+      guard let data = try? Data(contentsOf: url),
+        let object = try? JSONSerialization.jsonObject(with: data),
+        let event = object as? [String: Any]
+      else { return nil }
+      return event
+    }
+    let payload: [String: Any] = [
+      "events": events,
+      "exportedAt": ISO8601DateFormatter().string(from: Date()),
+      "schemaVersion": 1,
+    ]
+    guard JSONSerialization.isValidJSONObject(payload),
+      let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
+      let json = String(data: data, encoding: .utf8)
+    else {
+      return #"{"events":[],"exportedAt":"","schemaVersion":1}"#
+    }
+    return json
+  }
+
+  static func clear() {
+    for url in eventURLs() {
+      try? FileManager.default.removeItem(at: url)
+    }
+  }
+
+  private static func eventURLs() -> [URL] {
+    guard let directory = directory() else { return [] }
+    return
+      ((try? FileManager.default.contentsOfDirectory(
+        at: directory,
+        includingPropertiesForKeys: nil,
+        options: [.skipsHiddenFiles]
+      )) ?? [])
+      .filter { $0.pathExtension == "json" }
+      .sorted { $0.lastPathComponent < $1.lastPathComponent }
+  }
+
+  private static func directory() -> URL? {
+    guard
+      let container = FileManager.default.containerURL(
+        forSecurityApplicationGroupIdentifier: group
+      )
+    else { return nil }
+    let directory = container.appendingPathComponent("ShortcutDiagnostics", isDirectory: true)
     try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     return directory
   }

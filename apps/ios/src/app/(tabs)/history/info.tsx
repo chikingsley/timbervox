@@ -29,17 +29,23 @@ export default function HistoryInfoScreen() {
   const id = Array.isArray(routeId) ? routeId[0] : routeId;
   const database = useSQLiteContext();
   const { catalog } = useModes();
-  const [detail, setDetail] = useState<StoredDictationDetail | null>();
+  const [loadedDetail, setLoadedDetail] = useState<{
+    id: string;
+    value: StoredDictationDetail | null;
+  }>();
 
   useEffect(() => {
-    if (!id) {
-      setDetail(null);
-      return;
-    }
+    if (!id) return;
     loadStoredDictationDetail(database, id)
-      .then(setDetail)
-      .catch(() => setDetail(null));
+      .then((value) => setLoadedDetail({ id, value }))
+      .catch(() => setLoadedDetail({ id, value: null }));
   }, [database, id]);
+
+  const detail = id
+    ? loadedDetail?.id === id
+      ? loadedDetail.value
+      : undefined
+    : null;
 
   return (
     <>

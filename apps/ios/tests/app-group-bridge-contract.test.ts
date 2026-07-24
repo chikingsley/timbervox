@@ -134,7 +134,7 @@ describe("App Group bridge contract", () => {
     expect(keyboardController).toContain("notificationOccurred(.success)");
   });
 
-  it("opens the app through TimberVox dictation and resumes the owned keyboard request", () => {
+  it("opens the app instead of faking a recording state without a live session", () => {
     expect(keyboardController).toContain("hasDictationKey = true");
     expect(keyboardController).toContain("extensionContext.open(url)");
     expect(keyboardController).not.toContain(
@@ -143,9 +143,36 @@ describe("App Group bridge contract", () => {
     expect(keyboardController).toContain(
       'KeyboardBridge.set("keyboard", for: .requestedEntryPoint)',
     );
-    expect(session).toContain("const pendingKeyboardRequestId =");
-    expect(session).toContain(
-      'beginDictation("keyboard", pendingKeyboardRequestId)',
+
+    // The app only honours recordingRequested while a session is already live, so
+    // the offline branch must open TimberVox without arming a request the app
+    // will drop and without moving the key into its recording state.
+    const offlineBranch = keyboardController.slice(
+      keyboardController.indexOf("guard sessionActive else {"),
+      keyboardController.indexOf('let requestID = "keyboard_'),
+    );
+    expect(offlineBranch).toContain("openPersonalSession()");
+    expect(offlineBranch).not.toContain("recordingRequested = true");
+    expect(offlineBranch).not.toContain(
+      "KeyboardBridge.set(true, for: .recordingRequested)",
+    );
+    expect(session).not.toContain("const pendingKeyboardRequestId =");
+  });
+
+  it("keeps dictation state on its own key instead of the typing suggestions", () => {
+    expect(keyboardController).toContain("var dictationKeyState: DictationKeyState");
+    expect(keyboardRoot).toContain("DictationKey(state: model.dictationKeyState");
+    // Dictation status text must never be written into the swipe/typing predictions.
+    expect(keyboardController).not.toMatch(/predictions = \[\s*"/);
+    expect(keyboardController).not.toMatch(/model\.predictions = \[\s*"/);
+  });
+
+  it("lets auto-capitalization be turned off", () => {
+    expect(swift).toContain("case keyboardAutoCapitalizationEnabled");
+    expect(swift).toContain("seed(true, for: .keyboardAutoCapitalizationEnabled)");
+    expect(keyboardController).toContain("guard autoCapitalizationEnabled else {");
+    expect(typescript).toContain(
+      'seedBoolean("keyboardAutoCapitalizationEnabled", true)',
     );
   });
 

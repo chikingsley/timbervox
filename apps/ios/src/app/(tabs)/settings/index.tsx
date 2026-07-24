@@ -1,4 +1,5 @@
 import Constants from "expo-constants";
+import * as Clipboard from "expo-clipboard";
 import { SymbolView } from "expo-symbols";
 import { useSQLiteContext } from "expo-sqlite";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -33,6 +34,10 @@ import {
 } from "@/features/modes/model-catalog";
 import { useModes } from "@/features/modes/mode-provider";
 import { useSetupState } from "@/features/setup/setup-state";
+import {
+  clearShortcutDiagnostics,
+  loadShortcutDiagnostics,
+} from "@/features/setup/shortcut-diagnostics";
 import { ShortcutsButton } from "@/features/setup/shortcuts-button";
 import { cn } from "@/lib/utils";
 
@@ -53,6 +58,7 @@ export default function SettingsScreen() {
   const liveActivity = useLiveActivityPreferences();
   const [storage, setStorage] = useState(EMPTY_STORAGE);
   const [retention, setRetention] = useState<AudioRetentionDays>(null);
+  const [shortcutDiagnosticCount, setShortcutDiagnosticCount] = useState(0);
   const activeModel =
     modes.activeMode && modes.catalog
       ? selectedTranscriptionModel(modes.catalog, modes.activeMode.asrModelId)
@@ -66,6 +72,10 @@ export default function SettingsScreen() {
     setStorage(nextStorage);
     setRetention(nextRetention);
   }, [database]);
+
+  const refreshShortcutDiagnostics = useCallback(() => {
+    setShortcutDiagnosticCount(loadShortcutDiagnostics().events.length);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -85,8 +95,37 @@ export default function SettingsScreen() {
   useFocusEffect(
     useCallback(() => {
       void refreshStorage();
-    }, [refreshStorage]),
+      refreshShortcutDiagnostics();
+    }, [refreshShortcutDiagnostics, refreshStorage]),
   );
+
+  const copyShortcutDiagnostics = async () => {
+    const diagnostics = loadShortcutDiagnostics();
+    await Clipboard.setStringAsync(JSON.stringify(diagnostics, null, 2));
+    setShortcutDiagnosticCount(diagnostics.events.length);
+    Alert.alert(
+      "Shortcut diagnostics copied",
+      `${diagnostics.events.length} privacy-safe events copied. The export excludes transcripts, audio, and credentials.`,
+    );
+  };
+
+  const confirmClearShortcutDiagnostics = () => {
+    Alert.alert(
+      "Clear Shortcut diagnostics?",
+      "This removes the saved execution checkpoints from this device.",
+      [
+        { style: "cancel", text: "Cancel" },
+        {
+          onPress: () => {
+            clearShortcutDiagnostics();
+            setShortcutDiagnosticCount(0);
+          },
+          style: "destructive",
+          text: "Clear",
+        },
+      ],
+    );
+  };
 
   const restartSetup = () => {
     setup.restart();
@@ -174,6 +213,13 @@ export default function SettingsScreen() {
           label="Auto-correction"
           onChange={(value) => keyboard.update("autocorrect", value)}
           testID="settings-autocorrect"
+        />
+        <Separator />
+        <SwitchRow
+          checked={keyboard.preferences.autocapitalization}
+          label="Auto-capitalization"
+          onChange={(value) => keyboard.update("autocapitalization", value)}
+          testID="settings-autocapitalization"
         />
         <Separator />
         <SwitchRow
@@ -279,6 +325,22 @@ export default function SettingsScreen() {
           </Text>
           <ShortcutsButton className="h-12 w-full" />
         </View>
+        <Separator />
+        <ActionRow
+          label="Copy Shortcut diagnostics"
+          onPress={copyShortcutDiagnostics}
+          systemName="doc.on.doc"
+          testID="settings-copy-shortcut-diagnostics"
+          value={`${shortcutDiagnosticCount} events`}
+        />
+        <Separator />
+        <ActionRow
+          destructive
+          disabled={shortcutDiagnosticCount === 0}
+          label="Clear Shortcut diagnostics"
+          onPress={confirmClearShortcutDiagnostics}
+          testID="settings-clear-shortcut-diagnostics"
+        />
       </AppSection>
 
       <AppSection className="mt-1" title="Storage & Privacy">

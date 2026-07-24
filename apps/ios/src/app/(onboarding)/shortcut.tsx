@@ -2,11 +2,11 @@ import { SymbolView } from "expo-symbols";
 import { useRouter } from "expo-router";
 import { ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { presentShortcutImport } from "timbervox-system";
 
 import { AppSection } from "@/components/app/app-section";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
-import { ShortcutsButton } from "@/features/setup/shortcuts-button";
 import { useSetupState } from "@/features/setup/setup-state";
 
 export default function ShortcutScreen() {
@@ -50,7 +50,8 @@ export default function ShortcutScreen() {
             <View className="min-w-0 flex-1 gap-1">
               <Text className="font-bold">Toggle TimberVox Dictation</Text>
               <Text className="text-muted-foreground text-sm">
-                Runs Record Dictation to start or stop
+                Start or stop dictation, copy the transcript, get a
+                notification with the text
               </Text>
             </View>
             <View className="flex-row items-center gap-2">
@@ -58,14 +59,16 @@ export default function ShortcutScreen() {
               <Text className="text-success text-sm font-semibold">Signed</Text>
             </View>
           </View>
+          <Button
+            className="mb-3 h-14 rounded-2xl"
+            onPress={() => {
+              void presentShortcutImport();
+            }}
+            testID="add-wrapper-shortcut"
+          >
+            <Text className="text-base font-bold">Add TimberVox Shortcut</Text>
+          </Button>
         </AppSection>
-
-        <View className="gap-2">
-          <Text className="text-muted-foreground ml-1.5 text-xs font-extrabold tracking-widest uppercase">
-            TimberVox Shortcuts
-          </Text>
-          <ShortcutsButton className="h-14 w-full" />
-        </View>
 
         <View className="mt-auto gap-2 pt-2">
           <Button

@@ -35,7 +35,7 @@ Complete setup, or continue into the app-only recorder. The Home microphone reco
 
 Local development, internal preview, and the dedicated `testflight-dev` profile use Voice Lab and may embed a disposable credential when `PEACOCKERY_VOICE_EMBED_DEV_CREDENTIAL=1`. Local builds load `PEACOCKERY_VOICE_API_KEY` from the ignored repository-root `.env`; EAS builds require it as an EAS environment secret. The `production` profile selects `voice.peacockery.studio` and explicitly omits this credential. Before public release, exchange trusted app/account proof for a revocable managed client token kept only in memory and re-minted after launch or expiry.
 
-Remote EAS builds additionally require a `GITHUB_TOKEN` environment secret (a fine-grained personal access token with read-only contents access to `chikingsley/peacockery-voice`) so the worker can install the private `@chikingsley/peacockery-voice-client` git dependency; `scripts/eas-build-pre-install.js` applies it automatically. Without the secret, build locally with `eas build --local`, which uses this machine's git credentials.
+Remote EAS builds install `@simonpeacocks/peacockery-voice-client` from the public npm registry, using the same lockfile and package resolution as local builds. They do not require GitHub credentials for the SDK.
 
 ## Personal and distribution modes
 

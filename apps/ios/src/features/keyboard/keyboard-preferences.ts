@@ -10,12 +10,14 @@ import {
 type KeyboardPreferenceKey =
   | "keyboardHapticsEnabled"
   | "keyboardAutocorrectEnabled"
+  | "keyboardAutoCapitalizationEnabled"
   | "keyboardPredictionsEnabled"
   | "keyboardSoundEnabled"
   | "keyboardSwipeEnabled"
   | "streamingInsertionEnabled";
 
 type KeyboardPreferences = {
+  autocapitalization: boolean;
   autocorrect: boolean;
   haptics: boolean;
   predictions: boolean;
@@ -41,6 +43,7 @@ function useKeyboardPreferences() {
 
 function readPreferences(): KeyboardPreferences {
   return {
+    autocapitalization: readBridgeBoolean("keyboardAutoCapitalizationEnabled"),
     autocorrect: readBridgeBoolean("keyboardAutocorrectEnabled"),
     haptics: readBridgeBoolean("keyboardHapticsEnabled"),
     predictions: readBridgeBoolean("keyboardPredictionsEnabled"),
@@ -54,6 +57,8 @@ function preferenceBridgeKey(
   key: keyof KeyboardPreferences,
 ): KeyboardPreferenceKey & BridgeKey {
   switch (key) {
+    case "autocapitalization":
+      return "keyboardAutoCapitalizationEnabled";
     case "autocorrect":
       return "keyboardAutocorrectEnabled";
     case "haptics":

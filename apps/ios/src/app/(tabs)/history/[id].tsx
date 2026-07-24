@@ -34,28 +34,34 @@ export default function HistoryDetailScreen() {
   const database = useSQLiteContext();
   const history = useHistory();
   const router = useRouter();
-  const [detail, setDetail] = useState<StoredDictationDetail | null>();
+  const [loadedDetail, setLoadedDetail] = useState<{
+    id: string;
+    value: StoredDictationDetail | null;
+  }>();
   const [reprocessing, setReprocessing] = useState(false);
   const [copied, setCopied] = useState(false);
   const copyResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let mounted = true;
-    if (!id) {
-      setDetail(null);
-      return;
-    }
+    if (!id) return;
     loadStoredDictationDetail(database, id)
       .then((stored) => {
-        if (mounted) setDetail(stored);
+        if (mounted) setLoadedDetail({ id, value: stored });
       })
       .catch(() => {
-        if (mounted) setDetail(null);
+        if (mounted) setLoadedDetail({ id, value: null });
       });
     return () => {
       mounted = false;
     };
   }, [database, id]);
+
+  const detail = id
+    ? loadedDetail?.id === id
+      ? loadedDetail.value
+      : undefined
+    : null;
 
   useEffect(
     () => () => {
@@ -106,7 +112,7 @@ export default function HistoryDetailScreen() {
         configuredApiCredential(),
       );
       const updated = await loadStoredDictationDetail(database, detail.id);
-      setDetail(updated);
+      setLoadedDetail({ id: detail.id, value: updated });
       await history.reload();
       setSelected("processed");
     } catch (error) {

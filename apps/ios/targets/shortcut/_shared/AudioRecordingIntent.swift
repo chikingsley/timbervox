@@ -9,38 +9,83 @@ struct AudioRecordingIntent: AppIntents.AudioRecordingIntent, LiveActivityIntent
   static let description = IntentDescription(
     "Start or stop a persistent TimberVox session. Finished text is delivered to the TimberVox keyboard and clipboard."
   )
-  static let openAppWhenRun = false
 
-  func perform() async throws -> some IntentResult {
+  @available(iOS 26.0, *)
+  static var supportedModes: IntentModes {
+    [.foreground(.immediate)]
+  }
+
+  // The action returns the finished transcript so a shortcut can pipe it into
+  // Copy/If/Combine steps. Starting a session returns an empty string, which is
+  // how a wrapper shortcut tells "started" apart from "finished with text".
+  func perform() async throws -> some IntentResult & ReturnsValue<String> {
+    let traceId = "shortcut_\(UUID().uuidString.lowercased())"
+    TimberVoxShortcutDiagnostics.record("perform.entered", requestId: traceId)
     let defaults = TimberVoxNativeBridge.defaults
     defaults.set(TimberVoxNativeBridge.schemaVersion, forKey: "bridgeSchemaVersion")
     defaults.set(true, forKey: "shortcutAvailable")
 
     if isLiveSession(defaults: defaults) {
       let requestId = defaults.string(forKey: "activeRequestId") ?? ""
+      TimberVoxShortcutDiagnostics.record(
+        "session.live.stop_requested",
+        requestId: requestId.nonempty ?? traceId
+      )
       TimberVoxNativeBridge.publishSessionStopRequest()
       await TimberVoxBackgroundSession.shared.applyBridgeCommands()
-      let text = try await waitForSessionStop(requestId: requestId, defaults: defaults)
-      if !text.isEmpty { await copyToClipboard(text) }
-      return .result()
+      do {
+        let text = try await waitForSessionStop(requestId: requestId, defaults: defaults)
+        if !text.isEmpty { await copyToClipboard(text) }
+        TimberVoxShortcutDiagnostics.record(
+          "session.live.stop_completed",
+          requestId: requestId.nonempty ?? traceId
+        )
+        return .result(value: text)
+      } catch {
+        TimberVoxShortcutDiagnostics.record(
+          "session.live.stop_failed",
+          requestId: requestId.nonempty ?? traceId,
+          error: error
+        )
+        throw error
+      }
     }
 
+    TimberVoxShortcutDiagnostics.record("session.stale_cleared", requestId: traceId)
     clearStaleSession(defaults: defaults)
 
+    TimberVoxShortcutDiagnostics.record("permission.microphone.requested", requestId: traceId)
     let granted = await requestMicrophonePermission()
+    TimberVoxShortcutDiagnostics.record(
+      granted ? "permission.microphone.granted" : "permission.microphone.denied",
+      requestId: traceId
+    )
     guard granted else { throw TimberVoxShortcutError.microphonePermission }
 
-    let requestId = "shortcut_\(UUID().uuidString.lowercased())"
+    let requestId = traceId
     let resultId = "result_\(UUID().uuidString.lowercased())"
     let startedAt = Date()
     let mode = TimberVoxNativeModeSnapshot.active(from: defaults)
     let recordingURL = try recordingURL(requestId: requestId)
+    TimberVoxShortcutDiagnostics.record("recording.url.created", requestId: requestId)
     // AudioRecordingIntent requires a Live Activity for the complete recording lifetime. iOS stops
     // capture if the activity cannot start, so this failure must remain explicit rather than being
     // swallowed and followed by a misleading "started" state.
-    let activity = try startActivity(requestId: requestId, startedAt: startedAt, mode: mode)
+    let activity: Activity<TimberVoxRecordingAttributes>
+    do {
+      activity = try startActivity(requestId: requestId, startedAt: startedAt, mode: mode)
+      TimberVoxShortcutDiagnostics.record("activity.started", requestId: requestId)
+    } catch {
+      TimberVoxShortcutDiagnostics.record(
+        "activity.start_failed",
+        requestId: requestId,
+        error: error
+      )
+      throw error
+    }
 
     do {
+      TimberVoxShortcutDiagnostics.record("session.native.start_attempted", requestId: requestId)
       try await TimberVoxBackgroundSession.shared.start(
         activity: activity,
         initialCapture: .init(
@@ -51,8 +96,14 @@ struct AudioRecordingIntent: AppIntents.AudioRecordingIntent, LiveActivityIntent
           startedAt: startedAt
         )
       )
-      return .result()
+      TimberVoxShortcutDiagnostics.record("session.native.started", requestId: requestId)
+      return .result(value: "")
     } catch {
+      TimberVoxShortcutDiagnostics.record(
+        "session.native.start_failed",
+        requestId: requestId,
+        error: error
+      )
       await finishActivity(activity, phase: "failed")
       clearStaleSession(defaults: defaults)
       throw error
@@ -225,7 +276,10 @@ private final class TimberVoxBackgroundSession {
   ) async throws {
     guard commandTask == nil else { return }
     let defaults = TimberVoxNativeBridge.defaults
-    let recorder = try TimberVoxAudioRecorder(url: initialCapture.recordingURL)
+    let recorder = try TimberVoxAudioRecorder(
+      url: initialCapture.recordingURL,
+      requestId: initialCapture.requestId
+    )
     let realtimeClient = await makeRealtimeClient(
       defaults: defaults,
       mode: initialCapture.mode,
@@ -301,7 +355,7 @@ private final class TimberVoxBackgroundSession {
     let startedAt = Date()
     do {
       let url = try Self.recordingURL(requestId: requestId)
-      let recorder = try TimberVoxAudioRecorder(url: url)
+      let recorder = try TimberVoxAudioRecorder(url: url, requestId: requestId)
       let mode = TimberVoxNativeModeSnapshot.active(from: defaults)
       let realtimeClient = await makeRealtimeClient(
         defaults: defaults,
@@ -633,29 +687,87 @@ private final class TimberVoxAudioRecorder {
   private let recordingURL: URL
   private let recorder: AVAudioRecorder
 
-  init(url: URL) throws {
+  init(url: URL, requestId: String) throws {
     recordingURL = url
     let session = AVAudioSession.sharedInstance()
-    try session.setCategory(
-      .record,
-      mode: .measurement,
-      options: [.allowBluetoothHFP, .overrideMutedMicrophoneInterruption]
+    TimberVoxShortcutDiagnostics.record(
+      "audio_session.set_category_attempted",
+      requestId: requestId
     )
-    try session.setActive(true)
-    recorder = try AVAudioRecorder(
-      url: url,
-      settings: [
-        AVFormatIDKey: Int(kAudioFormatLinearPCM),
-        AVSampleRateKey: 16_000,
-        AVNumberOfChannelsKey: 1,
-        AVLinearPCMBitDepthKey: 16,
-        AVLinearPCMIsBigEndianKey: false,
-        AVLinearPCMIsFloatKey: false,
-      ]
+    do {
+      try session.setCategory(
+        .record,
+        mode: .measurement,
+        options: [.allowBluetoothHFP, .overrideMutedMicrophoneInterruption]
+      )
+      TimberVoxShortcutDiagnostics.record(
+        "audio_session.set_category_succeeded",
+        requestId: requestId
+      )
+    } catch {
+      TimberVoxShortcutDiagnostics.record(
+        "audio_session.set_category_failed",
+        requestId: requestId,
+        error: error
+      )
+      let nsError = error as NSError
+      throw TimberVoxShortcutError.audioSessionCategory(
+        domain: nsError.domain,
+        code: nsError.code,
+        message: nsError.localizedDescription
+      )
+    }
+    TimberVoxShortcutDiagnostics.record(
+      "audio_session.set_active_attempted",
+      requestId: requestId
     )
+    do {
+      try session.setActive(true)
+      TimberVoxShortcutDiagnostics.record(
+        "audio_session.set_active_succeeded",
+        requestId: requestId
+      )
+    } catch {
+      TimberVoxShortcutDiagnostics.record(
+        "audio_session.set_active_failed",
+        requestId: requestId,
+        error: error
+      )
+      let nsError = error as NSError
+      throw TimberVoxShortcutError.audioSessionActivation(
+        domain: nsError.domain,
+        code: nsError.code,
+        message: nsError.localizedDescription
+      )
+    }
+    do {
+      recorder = try AVAudioRecorder(
+        url: url,
+        settings: [
+          AVFormatIDKey: Int(kAudioFormatLinearPCM),
+          AVSampleRateKey: 16_000,
+          AVNumberOfChannelsKey: 1,
+          AVLinearPCMBitDepthKey: 16,
+          AVLinearPCMIsBigEndianKey: false,
+          AVLinearPCMIsFloatKey: false,
+        ]
+      )
+      TimberVoxShortcutDiagnostics.record("recorder.created", requestId: requestId)
+    } catch {
+      TimberVoxShortcutDiagnostics.record(
+        "recorder.create_failed",
+        requestId: requestId,
+        error: error
+      )
+      throw error
+    }
     recorder.prepareToRecord()
     recorder.isMeteringEnabled = true
-    guard recorder.record() else { throw TimberVoxShortcutError.recorderStart }
+    guard recorder.record() else {
+      TimberVoxShortcutDiagnostics.record("recorder.start_failed", requestId: requestId)
+      throw TimberVoxShortcutError.recorderStart
+    }
+    TimberVoxShortcutDiagnostics.record("recorder.started", requestId: requestId)
   }
 
   func meterLevel() -> Double {
@@ -919,6 +1031,8 @@ private struct TimberVoxNativeAPIClient {
 private enum TimberVoxShortcutError: LocalizedError {
   case apiURL
   case appGroup
+  case audioSessionActivation(domain: String, code: Int, message: String)
+  case audioSessionCategory(domain: String, code: Int, message: String)
   case credential
   case http(Int, String)
   case microphonePermission
@@ -935,6 +1049,10 @@ private enum TimberVoxShortcutError: LocalizedError {
     switch self {
     case .apiURL: "The TimberVox API address is invalid."
     case .appGroup: "The TimberVox shared container is unavailable."
+    case .audioSessionActivation(let domain, let code, let message):
+      "The microphone audio session could not activate (\(domain) \(code)): \(message)"
+    case .audioSessionCategory(let domain, let code, let message):
+      "The microphone audio session could not be configured (\(domain) \(code)): \(message)"
     case .credential: "Open TimberVox once to activate this development build."
     case .http(let status, let detail): "TimberVox API error \(status): \(detail)"
     case .microphonePermission: "Allow microphone access for TimberVox in Settings."
@@ -946,6 +1064,80 @@ private enum TimberVoxShortcutError: LocalizedError {
     case .resultTimeout: "The active dictation is still finishing."
     case .transcriptionTimeout: "The transcription took longer than two minutes."
     case .uploadContract: "The TimberVox upload route returned an invalid response."
+    }
+  }
+}
+
+private enum TimberVoxShortcutDiagnostics {
+  private struct Event: Encodable {
+    let appBuild: String
+    let appVersion: String
+    let bundleIdentifier: String
+    let errorCode: Int?
+    let errorDomain: String?
+    let errorMessage: String?
+    let operatingSystem: String
+    let processIdentifier: Int32
+    let processName: String
+    let requestId: String?
+    let schemaVersion: Int
+    let step: String
+    let timestamp: Date
+  }
+
+  private static let maximumEventCount = 200
+
+  static func record(_ step: String, requestId: String? = nil, error: Error? = nil) {
+    guard let directory = directory() else { return }
+    let nsError = error.map { $0 as NSError }
+    let event = Event(
+      appBuild: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "",
+      appVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+        ?? "",
+      bundleIdentifier: Bundle.main.bundleIdentifier ?? "",
+      errorCode: nsError?.code,
+      errorDomain: nsError?.domain,
+      errorMessage: nsError?.localizedDescription,
+      operatingSystem: ProcessInfo.processInfo.operatingSystemVersionString,
+      processIdentifier: ProcessInfo.processInfo.processIdentifier,
+      processName: ProcessInfo.processInfo.processName,
+      requestId: requestId,
+      schemaVersion: 1,
+      step: step,
+      timestamp: Date()
+    )
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    guard let data = try? encoder.encode(event) else { return }
+    let timestamp = Int(Date().timeIntervalSince1970 * 1_000_000)
+    let filename = "\(timestamp)-\(UUID().uuidString.lowercased()).json"
+    try? data.write(to: directory.appendingPathComponent(filename), options: .atomic)
+    trim(directory: directory)
+  }
+
+  private static func directory() -> URL? {
+    guard
+      let container = FileManager.default.containerURL(
+        forSecurityApplicationGroupIdentifier: TimberVoxNativeBridge.appGroup
+      )
+    else { return nil }
+    let directory = container.appendingPathComponent("ShortcutDiagnostics", isDirectory: true)
+    try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    return directory
+  }
+
+  private static func trim(directory: URL) {
+    let files =
+      ((try? FileManager.default.contentsOfDirectory(
+        at: directory,
+        includingPropertiesForKeys: nil,
+        options: [.skipsHiddenFiles]
+      )) ?? [])
+      .filter { $0.pathExtension == "json" }
+      .sorted { $0.lastPathComponent < $1.lastPathComponent }
+    guard files.count > maximumEventCount else { return }
+    for file in files.prefix(files.count - maximumEventCount) {
+      try? FileManager.default.removeItem(at: file)
     }
   }
 }

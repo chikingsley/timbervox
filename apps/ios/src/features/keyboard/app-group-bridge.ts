@@ -1,7 +1,7 @@
 import { ExtensionStorage } from "@bacons/apple-targets";
 
 const APP_GROUP = "group.studio.peacockery.timbervox";
-const BRIDGE_SCHEMA_VERSION = 5;
+const BRIDGE_SCHEMA_VERSION = 6;
 const storage = new ExtensionStorage(APP_GROUP);
 
 const bridgeKeys = [
@@ -16,6 +16,7 @@ const bridgeKeys = [
   "keyboardSoundEnabled",
   "keyboardPredictionsEnabled",
   "keyboardAutocorrectEnabled",
+  "keyboardAutoCapitalizationEnabled",
   "keyboardSwipeEnabled",
   "keyboardPersonalVocabulary",
   "keyboardPersonalVocabularyRevision",
@@ -79,6 +80,7 @@ function initializeAppGroupBridge() {
   seedBoolean("keyboardSoundEnabled", true);
   seedBoolean("keyboardPredictionsEnabled", true);
   seedBoolean("keyboardAutocorrectEnabled", true);
+  seedBoolean("keyboardAutoCapitalizationEnabled", true);
   seedBoolean("keyboardSwipeEnabled", true);
   if (!readBridgeString("liveActivityDisplayMode")) {
     writeBridgeString("liveActivityDisplayMode", "waveform");

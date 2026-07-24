@@ -3,8 +3,10 @@ import SwiftUI
 struct KeyboardSuggestionBar: View {
   let suggestions: [String]
   let partialTranscript: String
+  let notice: KeyboardNotice?
   let isEnabled: Bool
   let onSelect: (String) -> Void
+  let onNoticeTap: () -> Void
 
   var body: some View {
     HStack(spacing: 0) {
@@ -24,8 +26,12 @@ struct KeyboardSuggestionBar: View {
         .fill(Color(uiColor: .separator).opacity(0.45))
         .frame(height: 0.5)
     }
+    // Dictation borrows the row as a separate layer rather than writing into the
+    // typing suggestions underneath it, which belong to the swipe decoder alone.
     .overlay {
-      if !partialTranscript.isEmpty {
+      if let notice {
+        noticeView(notice)
+      } else if !partialTranscript.isEmpty {
         Text(partialTranscript)
           .font(.system(size: 15, weight: .medium))
           .lineLimit(1)
@@ -36,6 +42,29 @@ struct KeyboardSuggestionBar: View {
     }
     .accessibilityElement(children: .contain)
     .accessibilityLabel("Suggestions")
+  }
+
+  private func noticeView(_ notice: KeyboardNotice) -> some View {
+    Button(action: onNoticeTap) {
+      HStack(spacing: 6) {
+        Text(notice.message)
+          .font(.system(size: 14, weight: .medium))
+          .lineLimit(1)
+          .minimumScaleFactor(0.75)
+        if notice.insertion != nil {
+          Image(systemName: "text.insert")
+            .font(.system(size: 13, weight: .semibold))
+        }
+      }
+      .foregroundStyle(Color.secondary)
+      .padding(.horizontal, 12)
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .background(.thinMaterial)
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .accessibilityIdentifier("timbervox-dictation-notice")
+    .accessibilityLabel(notice.message)
   }
 
   private var displayedSuggestions: [String] {

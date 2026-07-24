@@ -440,7 +440,6 @@ class DictationWorkflow {
     ];
     const audioChunks = this.audioChunks;
     let displayedText = finalText;
-    let processingError: Error | null = null;
     if (event.type === "session.completed" && finalText.trim()) {
       try {
         const processed = await this.dependencies.process(plan, finalText);
@@ -457,10 +456,8 @@ class DictationWorkflow {
           });
           this.update({ finalText: displayedText, visibleText: displayedText });
         }
-      } catch (error) {
+      } catch {
         if (this.generation !== generation) return;
-        processingError =
-          error instanceof Error ? error : new Error("Text processing failed.");
       }
     }
 
