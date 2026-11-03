@@ -10,10 +10,15 @@ struct AudioRecordingIntent: AppIntents.AudioRecordingIntent, LiveActivityIntent
     "Start or stop a persistent TimberVox session. Finished text is delivered to the TimberVox keyboard and clipboard."
   )
 
-  @available(iOS 26.0, *)
-  static var supportedModes: IntentModes {
-    [.foreground(.immediate)]
-  }
+  // Background execution is the whole point of the action: Back Tap and the
+  // Action Button must toggle dictation without dragging TimberVox to the
+  // foreground. This is deliberately the pre-iOS-26 switch and NOT a
+  // supportedModes override: AudioRecordingIntent is a SystemIntent whose
+  // default execution carries the privileged background microphone grant,
+  // while a plain [.background] override runs it as a generic background
+  // intent and AVAudioSession activation is refused with
+  // AVAudioSessionErrorCodeCannotInterruptOthers.
+  static var openAppWhenRun: Bool { false }
 
   // The action returns the finished transcript so a shortcut can pipe it into
   // Copy/If/Combine steps. Starting a session returns an empty string, which is
@@ -391,7 +396,10 @@ private final class TimberVoxBackgroundSession {
   private func finishCapture(keepSessionWarm: Bool) async {
     guard let activeCapture = capture else { return }
     capture = nil
-    let duration = activeCapture.recorder.stop(deactivateAudioSession: true)
+    // A warm session keeps its audio session active: an active record session
+    // is what lets this process survive in the background between toggles, so
+    // the microphone key stays armed until the user ends the session.
+    let duration = activeCapture.recorder.stop(deactivateAudioSession: !keepSessionWarm)
     let finalPCM = activeCapture.recorder.nextPCMChunk()
     activeCapture.recorder.finishPCMStream()
     if let realtimeClient = activeCapture.realtimeClient {

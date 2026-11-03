@@ -168,6 +168,12 @@ final class KeyboardViewController: UIInputViewController {
       let requestID = KeyboardBridge.string(for: .finalRequestId),
       requestID == KeyboardBridge.string(for: .keyboardRequestId)
     else { return }
+    if requestID == model.cancelledRequestID {
+      model.cancelledRequestID = nil
+      KeyboardBridge.set(resultID, for: .consumedResultId)
+      KeyboardBridge.remove(.finalTranscript)
+      return
+    }
     let text = KeyboardBridge.string(for: .finalTranscript) ?? ""
     let status = KeyboardBridge.string(for: .finalResultStatus) ?? "failed"
     if !text.isEmpty {
@@ -312,6 +318,10 @@ final class KeyboardModel: ObservableObject {
   @Published var notice: KeyboardNotice?
   @Published var partialTranscript = ""
   @Published var sessionActive = false
+  /// A session flag alone is not proof of life: a session whose owner was
+  /// killed or suspended leaves `sessionActive` set forever. The heartbeat
+  /// decides whether the mic key may arm a recording.
+  @Published var sessionAlive = false
   @Published var recordingRequested = false
   @Published var finishing = false
   @Published var sessionPhase = "off"
@@ -336,14 +346,20 @@ final class KeyboardModel: ObservableObject {
   private var deleteRepeatTask: Task<Void, Never>?
   private var noticeDismissTask: Task<Void, Never>?
   private var finishTimeoutTask: Task<Void, Never>?
+  private var suggestionRefreshTask: Task<Void, Never>?
+  private let ordinaryImpactGenerator = UIImpactFeedbackGenerator(style: .medium)
+  /// Request whose late result must be swallowed because the user cancelled
+  /// out of the processing state.
+  var cancelledRequestID: String?
 
   var dictationKeyState: DictationKeyState {
     if !hasFullAccess { return .restricted }
+    guard sessionAlive else { return .offline }
     if recordingRequested { return .recording }
     if finishing || sessionPhase == "processing" || sessionPhase == "finalizing" {
       return .processing
     }
-    return sessionActive ? .idle : .offline
+    return .idle
   }
 
   func prepareSwipeContext() {
@@ -365,6 +381,20 @@ final class KeyboardModel: ObservableObject {
       // The "open TimberVox" notice stays up until it is answered, so retire it
       // the moment the session it asked for exists.
       if nextSessionActive, notice?.insertion == nil { clearNotice() }
+    }
+    let heartbeat = KeyboardBridge.double(for: .sessionHeartbeat)
+    let nextSessionAlive =
+      nextSessionActive && heartbeat > 0
+      && Date().timeIntervalSince1970 - heartbeat < 6
+    if sessionAlive != nextSessionAlive {
+      sessionAlive = nextSessionAlive
+      // A session that died while a recording was armed can never deliver, so
+      // drop the armed flag instead of leaving the key pretending to record.
+      if !nextSessionAlive, recordingRequested {
+        KeyboardBridge.set(false, for: .recordingRequested)
+        recordingRequested = false
+        endFinishing()
+      }
     }
     let nextRecordingRequested = KeyboardBridge.bool(for: .recordingRequested)
     if recordingRequested != nextRecordingRequested { recordingRequested = nextRecordingRequested }
@@ -405,7 +435,18 @@ final class KeyboardModel: ObservableObject {
     refreshSuggestions()
   }
 
+  // Suggestion generation is deferred and coalesced: rapid keystrokes cancel
+  // the pending refresh, so lexicon work never sits between two taps.
   func refreshSuggestions() {
+    suggestionRefreshTask?.cancel()
+    suggestionRefreshTask = Task { @MainActor [weak self] in
+      try? await Task.sleep(for: .milliseconds(45))
+      guard let self, !Task.isCancelled else { return }
+      applySuggestions()
+    }
+  }
+
+  private func applySuggestions() {
     guard predictionsEnabled else {
       predictions = []
       return
@@ -554,10 +595,16 @@ final class KeyboardModel: ObservableObject {
       beginFinishing()
       return
     }
+    // Processing is not a dead end: a second tap abandons the in-flight result
+    // and hands the key back instead of trapping the user in a spinner.
+    if finishing || sessionPhase == "processing" || sessionPhase == "finalizing" {
+      cancelFinishing()
+      return
+    }
     // Without a live session the app ignores a recording request, so arming one
     // here would only strand the key in a recording state that never records.
     // Opening TimberVox starts the session; the user comes back and taps again.
-    guard sessionActive else {
+    guard sessionAlive else {
       dictationFeedback(.warning)
       openPersonalSession()
       return
@@ -572,6 +619,22 @@ final class KeyboardModel: ObservableObject {
     KeyboardBridge.set(KeyboardBridge.integer(for: .requestRevision) + 1, for: .requestRevision)
     recordingRequested = true
     finishing = false
+  }
+
+  private func cancelFinishing() {
+    dictationFeedback(.stop)
+    cancelledRequestID =
+      KeyboardBridge.string(for: .keyboardRequestId)
+      ?? KeyboardBridge.string(for: .activeRequestId)
+    KeyboardBridge.set(false, for: .recordingRequested)
+    KeyboardBridge.set(
+      KeyboardBridge.integer(for: .requestRevision) + 1,
+      for: .requestRevision
+    )
+    recordingRequested = false
+    partialTranscript = ""
+    endFinishing()
+    present(notice: "Dictation cancelled")
   }
 
   /// Shows the processing state on the dictation key until a result lands, with a
@@ -670,7 +733,7 @@ final class KeyboardModel: ObservableObject {
 
   private func ordinaryHapticFeedback() {
     if hapticsEnabled {
-      UIImpactFeedbackGenerator(style: .medium).impactOccurred(intensity: 0.78)
+      ordinaryImpactGenerator.impactOccurred(intensity: 0.78)
     }
   }
 

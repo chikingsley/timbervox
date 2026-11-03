@@ -23,3 +23,4 @@ node_modules/
 # Private keys and personal documents (never commit)
 *.p8
 old-app/docs/agreementsFiles/
+tools/

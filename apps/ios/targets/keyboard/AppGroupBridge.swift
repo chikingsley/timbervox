@@ -108,6 +108,10 @@ enum KeyboardBridge {
     defaults?.integer(forKey: key.rawValue) ?? 0
   }
 
+  static func double(for key: BridgeKey) -> Double {
+    defaults?.double(forKey: key.rawValue) ?? 0
+  }
+
   static func string(for key: BridgeKey) -> String? {
     defaults?.string(forKey: key.rawValue)
   }

@@ -1,5 +1,9 @@
 default: build
 
+# Repo-local toolchain (tools/) wins when present; deleting tools/ falls back
+# to whatever swift/swiftlint is on the system PATH.
+export PATH := justfile_directory() / "tools/bin:" + env_var("PATH")
+
 xcode_local_flags := "-derivedDataPath .build/DerivedData -clonedSourcePackagesDirPath .build/SourcePackages -disablePackageRepositoryCache -skipPackageUpdates -skipPackagePluginValidation -jobs 2"
 
 # Regenerate TimberVox.xcodeproj from project.yml (run after any file add/move/delete)

@@ -5,9 +5,11 @@ import { useSQLiteContext } from "expo-sqlite";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Pressable, View } from "react-native";
+import { presentShortcutImport } from "timbervox-system";
 
 import { AppScreen } from "@/components/app/app-screen";
 import { AppSection } from "@/components/app/app-section";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
@@ -38,7 +40,6 @@ import {
   clearShortcutDiagnostics,
   loadShortcutDiagnostics,
 } from "@/features/setup/shortcut-diagnostics";
-import { ShortcutsButton } from "@/features/setup/shortcuts-button";
 import { cn } from "@/lib/utils";
 
 const EMPTY_STORAGE: StorageSummary = {
@@ -323,7 +324,15 @@ export default function SettingsScreen() {
             Add or reinstall the signed shortcut, then connect it to Back Tap,
             the Action Button, Siri, or an automation.
           </Text>
-          <ShortcutsButton className="h-12 w-full" />
+          <Button
+            className="h-12 w-full"
+            onPress={() => {
+              void presentShortcutImport();
+            }}
+            testID="settings-add-wrapper-shortcut"
+          >
+            <Text className="text-base font-bold">Add TimberVox Shortcut</Text>
+          </Button>
         </View>
         <Separator />
         <ActionRow

@@ -29,34 +29,29 @@ struct SwipeKeySurface: View {
   @State private var trail: [SwipePoint] = []
   @State private var activeControl: KeyboardControlKey?
 
+  private let digitRow = Array("1234567890")
   private let rows = [Array("qwertyuiop"), Array("asdfghjkl"), Array("zxcvbnm")]
 
   var body: some View {
     GeometryReader { geometry in
       let layout = makeLayout(size: geometry.size)
       ZStack(alignment: .topLeading) {
-        ForEach(layout.frames.keys.sorted(), id: \.self) { key in
-          keyView(key, frame: layout.frames[key] ?? .zero)
-        }
-
-        controlKey(
-          frame: layout.shiftFrame,
-          systemName: model.shifted ? "shift.fill" : "shift",
-          label: "Shift",
-          identifier: "key-shift"
+        // The grid splits into faces and glyphs so the trail can sit between
+        // them: it glides over the key faces but never smears the letters.
+        // Both layers are equatable, so per-sample trail updates only redraw
+        // the trail shape while a finger moves.
+        KeyFacesView(
+          frames: layout.frames,
+          shiftFrame: layout.shiftFrame,
+          deleteFrame: layout.deleteFrame
         )
-        controlKey(
-          frame: layout.deleteFrame,
-          systemName: "delete.left",
-          label: "Delete",
-          identifier: "key-delete"
-        )
+        .equatable()
 
         if model.swipeEnabled, trail.count > 1 {
           SwipeTrailShape(points: trail.map(\.location))
             .stroke(
               LinearGradient(
-                colors: [.cyan.opacity(0.45), .blue.opacity(0.88)],
+                colors: [.cyan.opacity(0.8), .blue.opacity(0.95)],
                 startPoint: .leading,
                 endPoint: .trailing
               ),
@@ -64,6 +59,16 @@ struct SwipeKeySurface: View {
             )
             .allowsHitTesting(false)
         }
+
+        KeyGlyphsView(
+          frames: layout.frames,
+          shiftFrame: layout.shiftFrame,
+          deleteFrame: layout.deleteFrame,
+          shifted: model.shifted
+        )
+        .equatable()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
       }
       .contentShape(Rectangle())
       .gesture(
@@ -126,55 +131,18 @@ struct SwipeKeySurface: View {
     }
   }
 
-  private func keyView(_ key: Character, frame: CGRect) -> some View {
-    RoundedRectangle(cornerRadius: 6, style: .continuous)
-      .fill(KeyboardPalette.key)
-      .overlay {
-        RoundedRectangle(cornerRadius: 6, style: .continuous)
-          .stroke(.black.opacity(0.16), lineWidth: 0.75)
-      }
-      .overlay {
-        Text(model.shifted ? String(key).uppercased() : String(key))
-          .font(.system(size: 21))
-          .foregroundStyle(Color(uiColor: .label))
-      }
-      .shadow(color: .black.opacity(0.18), radius: 0.5, y: 1)
-      .frame(width: frame.width, height: frame.height)
-      .position(x: frame.midX, y: frame.midY)
-      .accessibilityElement(children: .ignore)
-      .accessibilityLabel(String(key))
-      .accessibilityIdentifier("key-\(key)")
-      .accessibilityAddTraits(.isButton)
-  }
-
-  private func controlKey(
-    frame: CGRect,
-    systemName: String,
-    label: String,
-    identifier: String
-  ) -> some View {
-    RoundedRectangle(cornerRadius: 6, style: .continuous)
-      .fill(KeyboardPalette.specialKey)
-      .overlay {
-        RoundedRectangle(cornerRadius: 6, style: .continuous)
-          .stroke(.black.opacity(0.12), lineWidth: 0.75)
-      }
-      .overlay {
-        Image(systemName: systemName)
-          .foregroundStyle(Color(uiColor: .label))
-      }
-      .shadow(color: .black.opacity(0.12), radius: 0.5, y: 1)
-      .frame(width: frame.width, height: frame.height)
-      .position(x: frame.midX, y: frame.midY)
-      .accessibilityElement(children: .ignore)
-      .accessibilityLabel(label)
-      .accessibilityIdentifier(identifier)
-      .accessibilityAddTraits(.isButton)
-  }
-
   private func makeLayout(size: CGSize) -> KeyLayout {
-    let rowHeight = size.height / 3
+    let rowHeight = size.height / 4
     var frames: [Character: CGRect] = [:]
+    let digitWidth = size.width / CGFloat(digitRow.count)
+    for (column, key) in digitRow.enumerated() {
+      frames[key] = CGRect(
+        x: CGFloat(column) * digitWidth + 2.5,
+        y: 2.5,
+        width: digitWidth - 5,
+        height: rowHeight - 5
+      )
+    }
     for (rowIndex, row) in rows.prefix(2).enumerated() {
       let sideInset: CGFloat = rowIndex == 0 ? 0 : size.width * 0.045
       let available = size.width - sideInset * 2
@@ -182,7 +150,7 @@ struct SwipeKeySurface: View {
       for (column, key) in row.enumerated() {
         frames[key] = CGRect(
           x: sideInset + CGFloat(column) * keyWidth + 2.5,
-          y: CGFloat(rowIndex) * rowHeight + 2.5,
+          y: CGFloat(rowIndex + 1) * rowHeight + 2.5,
           width: keyWidth - 5,
           height: rowHeight - 5
         )
@@ -198,7 +166,7 @@ struct SwipeKeySurface: View {
     for (column, key) in thirdRow.enumerated() {
       frames[key] = CGRect(
         x: lettersStart + CGFloat(column) * letterWidth + 2.5,
-        y: rowHeight * 2 + 2.5,
+        y: rowHeight * 3 + 2.5,
         width: letterWidth - 5,
         height: rowHeight - 5
       )
@@ -207,10 +175,10 @@ struct SwipeKeySurface: View {
     return KeyLayout(
       frames: frames,
       size: size,
-      shiftFrame: CGRect(x: 2.5, y: rowHeight * 2 + 2.5, width: controlWidth - 5, height: rowHeight - 5),
+      shiftFrame: CGRect(x: 2.5, y: rowHeight * 3 + 2.5, width: controlWidth - 5, height: rowHeight - 5),
       deleteFrame: CGRect(
         x: size.width - controlWidth + 2.5,
-        y: rowHeight * 2 + 2.5,
+        y: rowHeight * 3 + 2.5,
         width: controlWidth - 5,
         height: rowHeight - 5
       )
@@ -221,6 +189,91 @@ struct SwipeKeySurface: View {
     zip(points, points.dropFirst()).reduce(0) { result, pair in
       result + hypot(pair.1.x - pair.0.x, pair.1.y - pair.0.y)
     }
+  }
+}
+
+private struct KeyFacesView: View, Equatable {
+  let frames: [Character: CGRect]
+  let shiftFrame: CGRect
+  let deleteFrame: CGRect
+
+  static func == (lhs: KeyFacesView, rhs: KeyFacesView) -> Bool {
+    lhs.frames == rhs.frames && lhs.shiftFrame == rhs.shiftFrame
+      && lhs.deleteFrame == rhs.deleteFrame
+  }
+
+  var body: some View {
+    ZStack(alignment: .topLeading) {
+      ForEach(frames.keys.sorted(), id: \.self) { key in
+        face(frame: frames[key] ?? .zero, special: false)
+          .accessibilityElement(children: .ignore)
+          .accessibilityLabel(String(key))
+          .accessibilityIdentifier("key-\(key)")
+          .accessibilityAddTraits(.isButton)
+      }
+      face(frame: shiftFrame, special: true)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Shift")
+        .accessibilityIdentifier("key-shift")
+        .accessibilityAddTraits(.isButton)
+      face(frame: deleteFrame, special: true)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Delete")
+        .accessibilityIdentifier("key-delete")
+        .accessibilityAddTraits(.isButton)
+    }
+  }
+
+  private func face(frame: CGRect, special: Bool) -> some View {
+    RoundedRectangle(cornerRadius: 6, style: .continuous)
+      .fill(special ? KeyboardPalette.specialKey : KeyboardPalette.key)
+      .overlay {
+        RoundedRectangle(cornerRadius: 6, style: .continuous)
+          .stroke(.black.opacity(special ? 0.12 : 0.16), lineWidth: 0.75)
+      }
+      .shadow(color: .black.opacity(special ? 0.12 : 0.18), radius: 0.5, y: 1)
+      .frame(width: frame.width, height: frame.height)
+      .position(x: frame.midX, y: frame.midY)
+  }
+}
+
+private struct KeyGlyphsView: View, Equatable {
+  let frames: [Character: CGRect]
+  let shiftFrame: CGRect
+  let deleteFrame: CGRect
+  let shifted: Bool
+
+  static func == (lhs: KeyGlyphsView, rhs: KeyGlyphsView) -> Bool {
+    lhs.frames == rhs.frames && lhs.shiftFrame == rhs.shiftFrame
+      && lhs.deleteFrame == rhs.deleteFrame && lhs.shifted == rhs.shifted
+  }
+
+  var body: some View {
+    ZStack(alignment: .topLeading) {
+      ForEach(frames.keys.sorted(), id: \.self) { key in
+        glyph(
+          shifted ? String(key).uppercased() : String(key),
+          frame: frames[key] ?? .zero
+        )
+      }
+      glyph(systemName: shifted ? "shift.fill" : "shift", frame: shiftFrame)
+      glyph(systemName: "delete.left", frame: deleteFrame)
+    }
+  }
+
+  private func glyph(_ text: String, frame: CGRect) -> some View {
+    Text(text)
+      .font(.system(size: 21))
+      .foregroundStyle(Color(uiColor: .label))
+      .frame(width: frame.width, height: frame.height)
+      .position(x: frame.midX, y: frame.midY)
+  }
+
+  private func glyph(systemName: String, frame: CGRect) -> some View {
+    Image(systemName: systemName)
+      .foregroundStyle(Color(uiColor: .label))
+      .frame(width: frame.width, height: frame.height)
+      .position(x: frame.midX, y: frame.midY)
   }
 }
 
@@ -241,26 +294,23 @@ private struct SwipeTrailShape: Shape {
 struct AlternateKeySurface: View {
   @ObservedObject var model: KeyboardModel
 
-  private var firstRow: [String] {
-    if model.page == .symbols {
-      return ["[", "]", "{", "}", "#", "%", "^", "*", "+", "="]
-    }
-    return Array("1234567890").map(String.init)
-  }
-
-  private var secondRow: [String] {
-    if model.page == .symbols {
-      return ["_", "\\", "|", "~", "<", ">", "€", "£", "¥", "•"]
-    }
-    return ["-", "/", ":", ";", "(", ")", "$", "&", "@", "\""]
-  }
-
+  // SwiftKey arrangement: digits always on top, one symbol family per page,
+  // punctuation anchored on the bottom row beside the page toggle.
+  private let digitRow = Array("1234567890").map(String.init)
+  private let bracketRow = ["[", "]", "{", "}", "#", "%", "^", "*", "+", "="]
+  private let dashRow = ["-", "/", ":", ";", "(", ")", "$", "&", "@", "\""]
+  private let symbolRow = ["_", "\\", "|", "~", "<", ">", "₽", "€", "£", "•"]
   private let punctuationRow = [".", ",", "?", "!", "'"]
 
   var body: some View {
     VStack(spacing: 5) {
-      keyRow(firstRow)
-      keyRow(secondRow)
+      keyRow(digitRow)
+      if model.page == .symbols {
+        keyRow(symbolRow)
+      } else {
+        keyRow(bracketRow)
+        keyRow(dashRow)
+      }
       HStack(spacing: 5) {
         Button {
           model.toggleSymbols()
@@ -290,6 +340,9 @@ struct AlternateKeySurface: View {
             .frame(maxHeight: .infinity)
         }
         .buttonStyle(KeyboardSpecialKeyStyle())
+      }
+      if model.page == .symbols {
+        Spacer(minLength: 0)
       }
     }
   }

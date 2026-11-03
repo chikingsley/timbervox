@@ -2,7 +2,8 @@ import SwiftUI
 
 enum KeyboardMetrics {
   static let suggestionHeight: CGFloat = 40
-  static let keySurfaceHeight: CGFloat = 148
+  // Four rows (number row plus three letter rows) at a comfortable key height.
+  static let keySurfaceHeight: CGFloat = 192
   static let bottomRowHeight: CGFloat = 44
   static let sectionSpacing: CGFloat = 5
   static let horizontalPadding: CGFloat = 5
@@ -63,19 +64,9 @@ struct KeyboardRootView: View {
           .frame(width: 40, height: 44)
       }
 
-      if let contextualKey {
-        // The frame must live on the label: KeyboardKeyStyle draws its key
-        // background around the label, so framing the button instead leaves a
-        // glyph-sized sliver of key floating in empty space.
-        Button {
-          model.insert(contextualKey)
-        } label: {
-          Text(contextualKey)
-            .font(.system(size: 17))
-            .frame(width: 38, height: 44)
-        }
-        .buttonStyle(KeyboardKeyStyle())
-      }
+      // SwiftKey ordering: dictation on the left thumb, punctuation on the
+      // right thumb, space wide in the middle.
+      DictationKey(state: model.dictationKeyState, action: model.toggleDictation)
 
       Button(action: model.insertSpace) {
         Text("space")
@@ -83,6 +74,19 @@ struct KeyboardRootView: View {
           .frame(maxWidth: .infinity, minHeight: 44)
       }
       .buttonStyle(KeyboardKeyStyle())
+
+      Button {
+        model.insert(contextualKey)
+      } label: {
+        // The frame must live on the label: KeyboardKeyStyle draws its key
+        // background around the label, so framing the button instead leaves a
+        // glyph-sized sliver of key floating in empty space.
+        Text(contextualKey)
+          .font(.system(size: 17))
+          .frame(width: 38, height: 44)
+      }
+      .buttonStyle(KeyboardKeyStyle())
+      .accessibilityLabel(contextualKey == "." ? "Period" : contextualKey)
 
       // The return key keeps one identity everywhere instead of relabeling
       // itself go/search/send per host field.
@@ -93,18 +97,15 @@ struct KeyboardRootView: View {
       }
       .buttonStyle(KeyboardSpecialKeyStyle())
       .accessibilityLabel("Return")
-
-      DictationKey(state: model.dictationKeyState, action: model.toggleDictation)
     }
   }
 
-  private var contextualKey: String? {
+  private var contextualKey: String {
     switch model.keyboardType {
     case .emailAddress: "@"
     case .URL: "/"
     case .twitter: "#"
-    case .webSearch: "."
-    default: nil
+    default: "."
     }
   }
 }

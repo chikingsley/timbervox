@@ -1,4 +1,5 @@
 const fs = jest.requireActual("fs") as {
+  existsSync(filePath: string): boolean;
   readFileSync(filePath: string, encoding: string): string;
 };
 const path = jest.requireActual("path") as {
@@ -26,8 +27,7 @@ describe("App Shortcut registration contract", () => {
       path.join(
         projectRoot,
         "targets",
-        "shortcut",
-        "_shared",
+        "app-intents",
         "AudioRecordingIntent.swift",
       ),
       "utf8",
@@ -53,8 +53,7 @@ describe("App Shortcut registration contract", () => {
       path.join(
         projectRoot,
         "targets",
-        "shortcut",
-        "_shared",
+        "app-intents",
         "AudioRecordingIntent.swift",
       ),
       "utf8",
@@ -124,23 +123,45 @@ describe("App Shortcut registration contract", () => {
     expect(onboarding).toContain("presentShortcutImport");
   });
 
-  it("runs capture in the foreground app and records privacy-safe checkpoints", () => {
+  it("runs capture in the background and records privacy-safe checkpoints", () => {
     const sharedIntent = fs.readFileSync(
       path.join(
         projectRoot,
         "targets",
-        "shortcut",
-        "_shared",
+        "app-intents",
         "AudioRecordingIntent.swift",
       ),
       "utf8",
     );
 
+    // Back Tap and the Action Button must toggle dictation without pulling
+    // TimberVox to the foreground. The privileged background microphone grant
+    // rides on AudioRecordingIntent's default SystemIntent execution with
+    // openAppWhenRun = false; a plain [.background] supportedModes override
+    // runs it as a generic background intent and AVAudioSession activation is
+    // refused with AVAudioSessionErrorCodeCannotInterruptOthers on device.
     expect(sharedIntent).not.toContain("openAppWhenRun = true");
-    expect(sharedIntent).toContain("static var supportedModes: IntentModes");
-    expect(sharedIntent).toContain("[.foreground(.immediate)]");
+    expect(sharedIntent).toContain("openAppWhenRun: Bool { false }");
+    expect(sharedIntent).not.toContain("static var supportedModes");
     expect(sharedIntent).toContain("TimberVoxShortcutDiagnostics.record");
     expect(sharedIntent).toContain('"audio_session.set_active_failed"');
     expect(sharedIntent).toContain("audioSessionActivation(");
+
+    // The intent performs in the main app process. An App Intents extension
+    // cannot declare the audio background mode (Apple rejects the upload,
+    // ITMS-91092), cross-process audio sessions failed to activate with
+    // CannotInterruptOthers, and the system prefers the extension whenever
+    // both processes contain the intent — so no extension target may exist.
+    const extensionGone = !fs.existsSync(
+      path.join(projectRoot, "targets", "shortcut"),
+    );
+    expect(extensionGone).toBe(true);
+    const appConfig = JSON.parse(
+      fs.readFileSync(path.join(projectRoot, "app.json"), "utf8"),
+    ) as { expo: { extra: { eas: { build: { experimental: { ios: { appExtensions: Array<{ bundleIdentifier: string }> } } } } } } };
+    const extensionIds = appConfig.expo.extra.eas.build.experimental.ios.appExtensions.map(
+      (entry) => entry.bundleIdentifier,
+    );
+    expect(extensionIds).not.toContain("studio.peacockery.timbervox.app-intents");
   });
 });

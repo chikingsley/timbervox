@@ -64,7 +64,7 @@ describe("App Group bridge contract", () => {
   const shortcutIntent = readFileSync(
     resolve(
       __dirname,
-      "../targets/shortcut/_shared/AudioRecordingIntent.swift",
+      "../targets/app-intents/AudioRecordingIntent.swift",
     ),
     "utf8",
   );
@@ -148,7 +148,7 @@ describe("App Group bridge contract", () => {
     // the offline branch must open TimberVox without arming a request the app
     // will drop and without moving the key into its recording state.
     const offlineBranch = keyboardController.slice(
-      keyboardController.indexOf("guard sessionActive else {"),
+      keyboardController.indexOf("guard sessionAlive else {\n      dictationFeedback(.warning)"),
       keyboardController.indexOf('let requestID = "keyboard_'),
     );
     expect(offlineBranch).toContain("openPersonalSession()");
@@ -200,7 +200,7 @@ describe("App Group bridge contract", () => {
   it("allows a pending keyboard request to be stopped before the app session opens", () => {
     const stopBranch = keyboardController.indexOf("if recordingRequested {");
     const sessionBranch = keyboardController.indexOf(
-      "guard sessionActive else {",
+      "guard sessionAlive else {\n      dictationFeedback(.warning)",
     );
 
     expect(stopBranch).toBeGreaterThan(-1);

@@ -32,9 +32,13 @@ struct KeyboardSuggestionBar: View {
       if let notice {
         noticeView(notice)
       } else if !partialTranscript.isEmpty {
+        // Head truncation keeps the newest words on screen: the line reads as
+        // a live tail of what is being said instead of freezing on the first
+        // phrase once the transcript outgrows the row.
         Text(partialTranscript)
           .font(.system(size: 15, weight: .medium))
           .lineLimit(1)
+          .truncationMode(.head)
           .padding(.horizontal, 12)
           .frame(maxWidth: .infinity, maxHeight: .infinity)
           .background(.thinMaterial)

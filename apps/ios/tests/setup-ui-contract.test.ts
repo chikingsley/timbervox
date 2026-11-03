@@ -32,24 +32,23 @@ describe("iPhone setup UI contract", () => {
 
   it("adds the signed wrapper with a single button on the shortcut screen", () => {
     const source = fs.readFileSync(
-      path.join(projectRoot, "src/app/(onboarding)/shortcut.tsx"),
+      path.join(projectRoot, "src", "app", "(onboarding)", "shortcut.tsx"),
       "utf8",
     );
-    const buttonSource = fs.readFileSync(
-      path.join(projectRoot, "src/features/setup/shortcuts-button.tsx"),
+    const settingsSource = fs.readFileSync(
+      path.join(projectRoot, "src", "app", "(tabs)", "settings", "index.tsx"),
       "utf8",
     );
 
-    // One add path only: the wrapper import button. The native Shortcuts-app
-    // link button lives in Settings, not beside it here.
+    // One add path everywhere: the wrapper import button. Setup and Settings
+    // trigger the exact same signed-shortcut import.
     expect(source).toContain("presentShortcutImport");
     expect(source).not.toContain("<ShortcutsButton");
+    expect(settingsSource).toContain("presentShortcutImport");
+    expect(settingsSource).not.toContain("<ShortcutsButton");
     expect(source).toContain('contentContainerClassName="grow');
     expect(source).toContain('edges={["top", "right", "bottom", "left"]}');
     expect(source).toContain("Add Toggle TimberVox Dictation");
-    expect(buttonSource).toContain("NativeShortcutsButton");
-    expect(buttonSource).not.toContain("https://www.icloud.com/shortcuts/");
-    expect(buttonSource).not.toContain("Linking.openURL");
   });
 
   it("refreshes keyboard bridge state while the setup screen is active", () => {

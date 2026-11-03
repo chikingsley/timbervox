@@ -79,8 +79,9 @@ describe("swipe decoder contract", () => {
 
   it("uses the same stronger haptic for ordinary keys and completed swipes", () => {
     expect(keyboardController).toContain(
-      "UIImpactFeedbackGenerator(style: .medium).impactOccurred(intensity: 0.78)",
+      "UIImpactFeedbackGenerator(style: .medium)",
     );
+    expect(keyboardController).toContain("impactOccurred(intensity: 0.78)");
     expect(keyboardController.match(/ordinaryHapticFeedback\(\)/g)).toHaveLength(
       3,
     );
