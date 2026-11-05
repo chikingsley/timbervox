@@ -56,9 +56,9 @@ function App() {
   };
 
   return (
-    <main className="min-h-dvh bg-background text-foreground">
+    <main className="bg-background text-foreground min-h-dvh">
       <Tabs className="min-h-dvh gap-0" defaultValue="reference">
-        <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur-xl">
+        <header className="bg-background/90 sticky top-0 z-30 border-b backdrop-blur-xl">
           <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-4 px-4">
             <div className="hidden items-center gap-2 sm:flex">
               <VoxGlyph />
@@ -72,7 +72,7 @@ function App() {
                 TimberVox
               </TabsTrigger>
             </TabsList>
-            <span className="hidden text-muted-foreground text-xs sm:block">
+            <span className="text-muted-foreground hidden text-xs sm:block">
               iPhone prototype
             </span>
           </div>
@@ -89,7 +89,7 @@ function App() {
               >
                 <ChevronLeftIcon />
               </Button>
-              <div className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="min-w-0 flex-1 [scrollbar-width:none] overflow-x-auto [&::-webkit-scrollbar]:hidden">
                 <ToggleGroup
                   aria-label="Reference screens"
                   className="w-max"
@@ -159,7 +159,7 @@ function VoxGlyph() {
     <span aria-hidden="true" className="flex h-6 items-center gap-0.5">
       {bars.map((bar) => (
         <i
-          className="w-0.5 rounded-full bg-primary"
+          className="bg-primary w-0.5 rounded-full"
           key={bar.id}
           style={{ height: bar.height }}
         />

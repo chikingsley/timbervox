@@ -1,7 +1,7 @@
 import { requestRecordingPermissionsAsync } from "expo-audio";
 import { SymbolView } from "expo-symbols";
 import { useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { type ComponentRef, useEffect, useRef, useState } from "react";
 import {
   AppState,
   Keyboard,
@@ -22,8 +22,8 @@ import { useSetupState } from "@/features/setup/setup-state";
 export default function WelcomeScreen() {
   const router = useRouter();
   const setup = useSetupState();
-  const scrollView = useRef<ScrollView>(null);
-  const verificationInput = useRef<TextInput>(null);
+  const scrollView = useRef<ComponentRef<typeof ScrollView>>(null);
+  const verificationInput = useRef<ComponentRef<typeof TextInput>>(null);
   const [awaitingKeyboardVerification, setAwaitingKeyboardVerification] =
     useState(false);
 

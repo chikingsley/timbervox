@@ -22,7 +22,7 @@ function persistRecording(
   );
   const bytes = makeWaveFile(chunks);
   file.create({ overwrite: true, intermediates: true });
-  file.write(bytes);
+  file.writeSync(bytes);
   return {
     format: RECORDING_FORMAT,
     sizeBytes: bytes.byteLength,

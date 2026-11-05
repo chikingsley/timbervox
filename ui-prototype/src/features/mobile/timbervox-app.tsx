@@ -308,7 +308,7 @@ export function TimberVoxApp() {
       reducedMotion="user"
       transition={{ duration: 0.34, ease: [0.32, 0.72, 0, 1] }}
     >
-      <div className="relative size-full overflow-hidden bg-background text-foreground">
+      <div className="bg-background text-foreground relative size-full overflow-hidden">
         <section className="absolute inset-0">
           {view === "home" ? (
             <HomeScreen
@@ -421,7 +421,7 @@ function HomeScreen({
               initial={{ opacity: 0, y: 8 }}
               key={recording ? "recording" : "ready"}
             >
-              <h1 className="font-semibold text-[1.65rem] tracking-[-0.04em]">
+              <h1 className="text-[1.65rem] font-semibold tracking-[-0.04em]">
                 {recording ? "Listening" : "Ready when you are"}
               </h1>
               <p className="text-muted-foreground text-sm leading-relaxed">
@@ -469,23 +469,23 @@ function HomeScreen({
               const Icon = mode.icon;
               return (
                 <DrawerClose
-                  className="flex items-center gap-3 rounded-2xl p-3 text-left hover:bg-accent"
+                  className="hover:bg-accent flex items-center gap-3 rounded-2xl p-3 text-left"
                   key={mode.id}
                   onClick={() => onSelectMode(mode.id)}
                 >
-                  <span className="grid size-10 place-items-center rounded-xl bg-secondary text-primary">
+                  <span className="bg-secondary text-primary grid size-10 place-items-center rounded-xl">
                     <Icon className="size-5" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <strong className="block font-medium text-sm">
+                    <strong className="block text-sm font-medium">
                       {mode.name}
                     </strong>
-                    <small className="block truncate text-muted-foreground">
+                    <small className="text-muted-foreground block truncate">
                       {mode.configuration}
                     </small>
                   </span>
                   {activeMode.id === mode.id ? (
-                    <CheckIcon className="size-5 text-primary" />
+                    <CheckIcon className="text-primary size-5" />
                   ) : null}
                 </DrawerClose>
               );
@@ -530,7 +530,7 @@ function VoiceField({ recording }: { recording: boolean }) {
           opacity: recording ? 0.72 : 0.28,
           scale: recording ? 1.08 : 0.88,
         }}
-        className="absolute inset-8 rounded-full bg-primary/30 blur-3xl"
+        className="bg-primary/30 absolute inset-8 rounded-full blur-3xl"
       />
       <div className="relative flex h-24 items-center justify-center gap-[5px]">
         {bars.map(({ height, id }) => (
@@ -616,7 +616,7 @@ function HistoryScreen({
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-3 px-5 pt-3 pb-6">
           <div className="flex items-center justify-between py-1">
-            <span className="font-medium text-muted-foreground text-xs uppercase tracking-[0.14em]">
+            <span className="text-muted-foreground text-xs font-medium tracking-[0.14em] uppercase">
               Recent
             </span>
             <Badge variant="secondary">
@@ -626,7 +626,7 @@ function HistoryScreen({
           </div>
           {filteredItems.map((item) => (
             <button
-              className="group rounded-2xl text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="group focus-visible:ring-ring rounded-2xl text-left outline-none focus-visible:ring-2"
               key={item.id}
               onClick={() => {
                 onSelectHistory(item.id);
@@ -634,17 +634,17 @@ function HistoryScreen({
               }}
               type="button"
             >
-              <Card className="gap-3 py-4 transition-colors group-hover:bg-accent/60">
+              <Card className="group-hover:bg-accent/60 gap-3 py-4 transition-colors">
                 <CardHeader>
                   <CardTitle className="pr-14 text-[0.94rem]">
                     {item.title}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="line-clamp-3 text-muted-foreground text-sm leading-relaxed">
+                  <p className="text-muted-foreground line-clamp-3 text-sm leading-relaxed">
                     {item.preview}
                   </p>
-                  <div className="mt-3 flex items-center justify-between border-t pt-3 text-[0.68rem] text-muted-foreground">
+                  <div className="text-muted-foreground mt-3 flex items-center justify-between border-t pt-3 text-[0.68rem]">
                     <span>
                       {item.wordCount} words · {formatDuration(item.duration)}
                     </span>
@@ -655,7 +655,7 @@ function HistoryScreen({
             </button>
           ))}
           {filteredItems.length === 0 ? (
-            <p className="py-12 text-center text-muted-foreground text-sm">
+            <p className="text-muted-foreground py-12 text-center text-sm">
               No matching dictations.
             </p>
           ) : null}
@@ -718,12 +718,12 @@ function HistoryDetailScreen({
           <TranscriptContent item={item} view={transcriptView} />
         </div>
       </ScrollArea>
-      <div className="absolute inset-x-0 bottom-0 border-t bg-background px-5 pt-3 pb-5">
+      <div className="bg-background absolute inset-x-0 bottom-0 border-t px-5 pt-3 pb-5">
         <TranscriptViewControl
           onChange={setTranscriptView}
           value={transcriptView}
         />
-        <div className="mt-3 flex items-center justify-between gap-3 text-muted-foreground text-xs">
+        <div className="text-muted-foreground mt-3 flex items-center justify-between gap-3 text-xs">
           <span>
             {item.wordCount} words · {formatDuration(item.duration)}
           </span>
@@ -779,7 +779,7 @@ function TranscriptContent({
             key={`${item.id}-${segment.timestamp}`}
           >
             <button
-              className="pt-0.5 text-left font-medium text-primary text-xs"
+              className="text-primary pt-0.5 text-left text-xs font-medium"
               type="button"
             >
               {segment.timestamp}
@@ -792,7 +792,7 @@ function TranscriptContent({
   }
 
   return (
-    <p className="text-[0.94rem] text-foreground/90 leading-[1.72]">
+    <p className="text-foreground/90 text-[0.94rem] leading-[1.72]">
       {view === "raw" ? item.rawText : item.processedText}
     </p>
   );
@@ -818,14 +818,14 @@ function ModesScreen({
       <AppHeader title="Modes" />
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-3 px-5 pt-3 pb-28">
-          <h2 className="font-medium text-muted-foreground text-xs uppercase tracking-[0.14em]">
+          <h2 className="text-muted-foreground text-xs font-medium tracking-[0.14em] uppercase">
             Your modes
           </h2>
           {modes.map((mode) => {
             const Icon = mode.icon;
             return (
               <button
-                className="group rounded-2xl text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="group focus-visible:ring-ring rounded-2xl text-left outline-none focus-visible:ring-2"
                 key={mode.id}
                 onClick={() => {
                   onSelectMode(mode.id);
@@ -834,12 +834,12 @@ function ModesScreen({
                 type="button"
               >
                 <Card
-                  className="transition-colors group-hover:bg-accent/60"
+                  className="group-hover:bg-accent/60 transition-colors"
                   size="sm"
                 >
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <span className="grid size-8 place-items-center rounded-lg bg-secondary text-primary">
+                      <span className="bg-secondary text-primary grid size-8 place-items-center rounded-lg">
                         <Icon className="size-4" />
                       </span>
                       {mode.name}
@@ -852,11 +852,11 @@ function ModesScreen({
                     <CardDescription className="pl-10">
                       {mode.description}
                     </CardDescription>
-                    <p className="pl-10 text-[0.68rem] text-muted-foreground/70">
+                    <p className="text-muted-foreground/70 pl-10 text-[0.68rem]">
                       {mode.configuration}
                     </p>
                     <CardAction className="self-center">
-                      <ChevronRightIcon className="size-4 text-muted-foreground" />
+                      <ChevronRightIcon className="text-muted-foreground size-4" />
                     </CardAction>
                   </CardHeader>
                 </Card>
@@ -864,7 +864,7 @@ function ModesScreen({
             );
           })}
           <section className="mt-4">
-            <h2 className="font-medium text-muted-foreground text-xs uppercase tracking-[0.14em]">
+            <h2 className="text-muted-foreground text-xs font-medium tracking-[0.14em] uppercase">
               Create from a preset
             </h2>
             <div className="mt-3 grid grid-cols-2 gap-2">
@@ -873,12 +873,12 @@ function ModesScreen({
                 const Icon = meta.icon;
                 return (
                   <button
-                    className="flex min-h-28 flex-col items-start gap-2 rounded-2xl border bg-card p-4 text-left transition-colors hover:bg-accent"
+                    className="bg-card hover:bg-accent flex min-h-28 flex-col items-start gap-2 rounded-2xl border p-4 text-left transition-colors"
                     key={preset}
                     onClick={() => onCreateMode(preset)}
                     type="button"
                   >
-                    <Icon className="size-5 text-primary" />
+                    <Icon className="text-primary size-5" />
                     <strong className="text-sm">{meta.label}</strong>
                     <span className="text-muted-foreground text-xs leading-4">
                       {meta.description}
@@ -890,7 +890,7 @@ function ModesScreen({
           </section>
         </div>
       </ScrollArea>
-      <div className="absolute inset-x-0 bottom-[4.9rem] border-t bg-background px-5 py-3">
+      <div className="bg-background absolute inset-x-0 bottom-[4.9rem] border-t px-5 py-3">
         <Button
           className="h-11 w-full rounded-xl"
           onClick={() => onCreateMode("custom")}
@@ -1024,7 +1024,7 @@ function ModeDetailScreen({
             <Card>
               <CardContent className="flex flex-col gap-2">
                 <label
-                  className="font-medium text-sm"
+                  className="text-sm font-medium"
                   htmlFor="mode-instructions"
                 >
                   Custom instructions
@@ -1057,7 +1057,7 @@ function ModeDetailScreen({
             {modeIconOptions.map(({ icon: Icon, label }) => (
               <DrawerClose
                 aria-label={label}
-                className="grid aspect-square place-items-center rounded-2xl border hover:bg-accent"
+                className="hover:bg-accent grid aspect-square place-items-center rounded-2xl border"
                 key={label}
                 onClick={() =>
                   onUpdateMode({ icon: Icon, iconCustomized: true })
@@ -1136,7 +1136,7 @@ function ModeDetailScreen({
               return (
                 <DrawerClose
                   className={cn(
-                    "flex min-h-24 flex-col items-start gap-2 rounded-2xl border p-3 text-left hover:bg-accent",
+                    "hover:bg-accent flex min-h-24 flex-col items-start gap-2 rounded-2xl border p-3 text-left",
                     preset === id && "border-primary/50 bg-primary/10"
                   )}
                   key={id}
@@ -1150,16 +1150,16 @@ function ModeDetailScreen({
                   }}
                 >
                   <span className="flex w-full items-center justify-between">
-                    <Icon className="size-5 text-primary" />
+                    <Icon className="text-primary size-5" />
                     {preset === id ? (
-                      <CheckIcon className="size-4 text-primary" />
+                      <CheckIcon className="text-primary size-4" />
                     ) : null}
                   </span>
-                  <strong className="font-medium text-sm">{meta.label}</strong>
+                  <strong className="text-sm font-medium">{meta.label}</strong>
                   <span className="text-muted-foreground text-xs leading-4">
                     {meta.description}
                   </span>
-                  <span className="mt-auto text-[0.65rem] text-primary">
+                  <span className="text-primary mt-auto text-[0.65rem]">
                     {meta.processing}
                   </span>
                 </DrawerClose>
@@ -1180,7 +1180,7 @@ function ModeDetailScreen({
           </DialogHeader>
         </DialogContent>
       </Dialog>
-      <div className="absolute inset-x-0 bottom-0 border-t bg-background px-5 py-3">
+      <div className="bg-background absolute inset-x-0 bottom-0 border-t px-5 py-3">
         <Button className="h-12 w-full rounded-xl" onClick={onUseMode}>
           {active ? <CheckIcon data-icon="inline-start" /> : null}
           Use mode
@@ -1236,29 +1236,29 @@ function SettingsScreen({ navigate }: ScreenProps) {
             <InfoRow label="Storage used" value="184 MB" />
             <Separator />
             <Button
-              className="mt-2 justify-start px-0 text-destructive hover:text-destructive"
+              className="text-destructive hover:text-destructive mt-2 justify-start px-0"
               variant="ghost"
             >
               <Trash2Icon data-icon="inline-start" />
               Clear recordings
             </Button>
-            <p className="pt-2 text-muted-foreground text-xs leading-relaxed">
+            <p className="text-muted-foreground pt-2 text-xs leading-relaxed">
               Transcript history is kept separately from audio recordings.
             </p>
           </SettingsCard>
 
           <button
-            className="rounded-2xl text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="focus-visible:ring-ring rounded-2xl text-left outline-none focus-visible:ring-2"
             onClick={() => navigate("license")}
             type="button"
           >
-            <Card className="transition-colors hover:bg-accent/60" size="sm">
+            <Card className="hover:bg-accent/60 transition-colors" size="sm">
               <CardHeader>
                 <CardTitle>TimberVox Pro</CardTitle>
                 <CardDescription>Cloud Access · App Store</CardDescription>
                 <CardAction className="flex items-center gap-2">
                   <Badge className="bg-success/15 text-success">Active</Badge>
-                  <ChevronRightIcon className="size-4 text-muted-foreground" />
+                  <ChevronRightIcon className="text-muted-foreground size-4" />
                 </CardAction>
               </CardHeader>
             </Card>
@@ -1266,10 +1266,10 @@ function SettingsScreen({ navigate }: ScreenProps) {
 
           <section aria-labelledby="access-heading">
             <div className="mb-2 flex items-center justify-between">
-              <h2 className="font-medium text-sm" id="access-heading">
+              <h2 className="text-sm font-medium" id="access-heading">
                 Access
               </h2>
-              <span className="flex items-center gap-1 text-success text-xs">
+              <span className="text-success flex items-center gap-1 text-xs">
                 <CircleCheckBigIcon className="size-3.5" /> Ready
               </span>
             </div>
@@ -1325,7 +1325,7 @@ function LicenseScreen({ navigate }: ScreenProps) {
           <Card className="border-success/25 bg-success/5">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
-                <CircleCheckBigIcon className="size-5 text-success" />
+                <CircleCheckBigIcon className="text-success size-5" />
                 Active
               </CardTitle>
               <CardDescription>
@@ -1381,11 +1381,11 @@ function AccessTile({
   return (
     <Card className="gap-2 p-3" size="sm">
       <span className="flex items-center justify-between">
-        <Icon className="size-4 text-success" />
-        <i className="size-2 rounded-full bg-success shadow-[0_0_12px_var(--success)]" />
+        <Icon className="text-success size-4" />
+        <i className="bg-success size-2 rounded-full shadow-[0_0_12px_var(--success)]" />
       </span>
-      <span className="font-medium text-xs">{label}</span>
-      <span className="text-[0.68rem] text-muted-foreground">{value}</span>
+      <span className="text-xs font-medium">{label}</span>
+      <span className="text-muted-foreground text-[0.68rem]">{value}</span>
     </Card>
   );
 }
@@ -1415,7 +1415,7 @@ function ChoiceDrawerContent({
         {options.map((option) => (
           <DrawerClose
             className={cn(
-              "flex min-h-12 items-center justify-between rounded-xl px-3 text-left text-sm hover:bg-accent",
+              "hover:bg-accent flex min-h-12 items-center justify-between rounded-xl px-3 text-left text-sm",
               option === selected && "bg-primary/10"
             )}
             key={option}
@@ -1423,7 +1423,7 @@ function ChoiceDrawerContent({
           >
             {option}
             {option === selected ? (
-              <CheckIcon className="size-4 text-primary" />
+              <CheckIcon className="text-primary size-4" />
             ) : null}
           </DrawerClose>
         ))}
@@ -1447,12 +1447,12 @@ function BottomBar({
   ];
 
   return (
-    <nav className="absolute inset-x-3 bottom-3 z-20 flex h-16 items-center rounded-[1.35rem] border bg-background/88 p-1.5 shadow-2xl backdrop-blur-2xl">
+    <nav className="bg-background/88 absolute inset-x-3 bottom-3 z-20 flex h-16 items-center rounded-[1.35rem] border p-1.5 shadow-2xl backdrop-blur-2xl">
       {destinations.map(({ icon: Icon, label, view }) => (
         <Button
           aria-current={activeView === view ? "page" : undefined}
           className={cn(
-            "relative h-full flex-1 flex-col gap-1 rounded-2xl text-[0.68rem] text-muted-foreground",
+            "text-muted-foreground relative h-full flex-1 flex-col gap-1 rounded-2xl text-[0.68rem]",
             activeView === view && "bg-secondary text-foreground"
           )}
           key={view}
@@ -1467,7 +1467,7 @@ function BottomBar({
           {label}
           {activeView === view ? (
             <motion.span
-              className="absolute bottom-1 h-0.5 w-5 rounded-full bg-primary"
+              className="bg-primary absolute bottom-1 h-0.5 w-5 rounded-full"
               layoutId="bottom-navigation-indicator"
             />
           ) : null}
@@ -1498,12 +1498,12 @@ function AppScreen({
 
 function StatusBar({ time = "4:47" }: { time?: string }) {
   return (
-    <div className="flex h-11 shrink-0 items-end justify-between px-6 pb-1.5 font-semibold text-xs">
+    <div className="flex h-11 shrink-0 items-end justify-between px-6 pb-1.5 text-xs font-semibold">
       <span>{time}</span>
       <div aria-hidden="true" className="flex items-center gap-1.5">
         <span className="tracking-[-0.16em]">▮▮▮▮</span>
         <span>◔</span>
-        <span className="rounded bg-foreground px-1 text-[0.6rem] text-background">
+        <span className="bg-foreground text-background rounded px-1 text-[0.6rem]">
           46
         </span>
       </div>
@@ -1514,7 +1514,7 @@ function StatusBar({ time = "4:47" }: { time?: string }) {
 function AppHeader({ action, title }: { action?: ReactNode; title: string }) {
   return (
     <header className="flex items-end justify-between gap-4 px-5 pt-3 pb-3">
-      <h1 className="font-semibold text-[1.85rem] tracking-[-0.045em]">
+      <h1 className="text-[1.85rem] font-semibold tracking-[-0.045em]">
         {title}
       </h1>
       {action}
@@ -1536,7 +1536,7 @@ function DetailHeader({
       <Button aria-label="Back" onClick={onBack} size="icon" variant="ghost">
         <ArrowLeftIcon />
       </Button>
-      <h1 className="truncate text-center font-semibold text-sm">{title}</h1>
+      <h1 className="truncate text-center text-sm font-semibold">{title}</h1>
       <div className="flex justify-end">{action}</div>
     </header>
   );
@@ -1584,7 +1584,7 @@ function ValueRow({
     >
       {Icon ? <Icon data-icon="inline-start" /> : null}
       <span>{label}</span>
-      <span className="ml-auto text-muted-foreground">{value}</span>
+      <span className="text-muted-foreground ml-auto">{value}</span>
       <ChevronRightIcon data-icon="inline-end" />
     </Button>
   );
@@ -1601,7 +1601,7 @@ function ControlRow({
 }) {
   return (
     <div className="flex min-h-12 items-center gap-2 text-sm">
-      {Icon ? <Icon className="size-4 text-muted-foreground" /> : null}
+      {Icon ? <Icon className="text-muted-foreground size-4" /> : null}
       <span>{label}</span>
       <div className="ml-auto">{children}</div>
     </div>

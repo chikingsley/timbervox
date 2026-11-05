@@ -9,11 +9,11 @@ import {
 import { ModeEditorHeader } from "@/features/modes/mode-editor-screen";
 
 describe("mode editor interaction contract", () => {
-  it("keeps the header in display mode and exposes deliberate edit actions", () => {
+  it("keeps the header in display mode and exposes deliberate edit actions", async () => {
     const onChangeIcon = jest.fn();
     const onRename = jest.fn();
 
-    render(
+    await render(
       <ModeEditorHeader
         iconKey="message.fill"
         name="Message"
@@ -23,8 +23,8 @@ describe("mode editor interaction contract", () => {
     );
 
     expect(screen.queryByDisplayValue("Message")).toBeNull();
-    fireEvent.press(screen.getByLabelText("Change mode icon"));
-    fireEvent.press(screen.getByLabelText("Rename Message mode"));
+    await fireEvent.press(screen.getByLabelText("Change mode icon"));
+    await fireEvent.press(screen.getByLabelText("Rename Message mode"));
     expect(onChangeIcon).toHaveBeenCalledTimes(1);
     expect(onRename).toHaveBeenCalledTimes(1);
   });

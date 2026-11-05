@@ -6,8 +6,8 @@ import { RecordingControl } from "@/components/app/recording-control";
 import { Text } from "@/components/ui/text";
 
 describe("foundation components", () => {
-  it("provides one shared surface for bottom actions", () => {
-    render(
+  it("provides one shared surface for bottom actions", async () => {
+    await render(
       <SafeAreaProvider
         initialMetrics={{
           frame: { height: 844, width: 390, x: 0, y: 0 },
@@ -41,15 +41,15 @@ describe("foundation components", () => {
       stage: "result" as const,
       text: "Copied",
     },
-  ])("renders the $text recording control state", ({ label, stage, text }) => {
-    render(<RecordingControl onPress={jest.fn()} stage={stage} />);
+  ])("renders the $text recording control state", async ({ label, stage, text }) => {
+    await render(<RecordingControl onPress={jest.fn()} stage={stage} />);
 
     expect(screen.getByLabelText(label)).toBeTruthy();
     expect(screen.getByText(text)).toBeTruthy();
   });
 
-  it("does not claim a copy for a no-speech result", () => {
-    render(
+  it("does not claim a copy for a no-speech result", async () => {
+    await render(
       <RecordingControl
         onPress={jest.fn()}
         resultHadText={false}

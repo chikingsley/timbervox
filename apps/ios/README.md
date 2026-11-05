@@ -10,7 +10,7 @@ Expo/React Native host app plus a native SwiftUI custom keyboard extension. The 
 - Minimal Home recorder that starts and stops realtime dictation directly
 - Local SQLite History with searchable transcripts, retained WAV audio, playback, sharing, and deletion
 - Settings with live keyboard/full-access evidence and background-session status
-- Expo SDK 57 host app with background audio recording
+- Expo SDK 58 host app with background audio recording
 - Voice Lab realtime streaming for internal builds and official Peacockery Voice routing for production
 - App-owned Peacockery Voice development authentication injected only into internal builds
 - SwiftUI keyboard extension with tap typing, a visible swipe trail, local prototype swipe decoding, three predictions, and a bottom-right dictation control

@@ -12,7 +12,7 @@ const FOUNDATION_ROUTES = [
 
 describe("foundation routes", () => {
   it("keeps onboarding separate and opens every tab root", async () => {
-    const result = renderRouter(FOUNDATION_ROUTES, { initialUrl: "/welcome" });
+    const result = await renderRouter(FOUNDATION_ROUTES, { initialUrl: "/welcome" });
 
     await waitFor(() =>
       expect(result.getSegments()).toEqual(["(onboarding)", "welcome"]),
